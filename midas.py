@@ -21,8 +21,8 @@ class Midas:
         self.K = K
 
     # Defines the weighting scheme based on exponential Almon lag polynomial
-    def weights(self, theta1: float, theta2: float):
-        x = np.array([theta1 * j + theta2 * j**2 for j in range(1, self.K+1)])
+    def weights_expalmon(self, theta1: float, theta2: float):
+        x = np.array([theta1 * j + theta2 * j**2 for j in range(0, self.K)])
         w = np.exp(x - x.max())   # -x.max pour la stabilité numérique
 
         return w / w.sum()

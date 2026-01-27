@@ -366,17 +366,22 @@ def kalman_forecast_series(y, x, h=1, m=3):
 #============================
 def exp_almon_weights(K: int, theta1: float, theta2: float) -> np.ndarray:
     """
-    Exponential Almon lag polynomial weights (Eq. 2.19) over j=0..K
-    normalized to sum to 1.
+    Numerically stable exponential Almon lag polynomial weights.
     """
     j = np.arange(K + 1, dtype=float)
-    a = np.exp(theta1 * j + theta2 * j * j)
+    z = theta1 * j + theta2 * j * j
+
+    # Numerical stabilization
+    z = z - np.max(z)
+
+    a = np.exp(z)
     s = a.sum()
+
     if not np.isfinite(s) or s <= 0:
-        # fail-safe: return something harmless rather than nan
         out = np.zeros(K + 1)
         out[0] = 1.0
         return out
+
     return a / s
 
 def midas_regular_forecast(y, x, h=1, m=3, K=12):
@@ -922,16 +927,42 @@ def generate_table_5(
 
     return pd.DataFrame(table).T
 
-tables_4A = generate_table_4A()
-tables_4B = generate_table_4B() 
-table5 = generate_table_5(N=500, rho=0.9, d=0.5)  
-
+tables_4A = generate_table_4A(N=30)
 tables_4A["Panel A (h=1) - Regular MIDAS"]
-tables_4A["Panel A (h=1) - ADL-MIDAS"]
-tables_4A["Panel B (h=4) - Regular MIDAS"]
-tables_4A["Panel B (h=4) - ADL-MIDAS"]
+tables_4A["Panel A (h=1) - Regular MIDAS"].to_excel(
+    "Table_4A_PanelA_MIDAS.xlsx"
+)
 
+tables_4A["Panel A (h=1) - ADL-MIDAS"]
+tables_4A["Panel A (h=1) - ADL-MIDAS"].to_excel(
+    "Table_4A_PanelA_ADL-MIDAS.xlsx"
+)
+tables_4A["Panel B (h=4) - Regular MIDAS"]
+tables_4A["Panel B (h=4) - Regular MIDAS"].to_excel(
+    "Table_4A_PanelB_MIDAS.xlsx"
+)
+tables_4A["Panel B (h=4) - ADL-MIDAS"]
+tables_4A["Panel B (h=4) - ADL-MIDAS"].to_excel(
+    "Table_4A_PanelB_ADL-MIDAS.xlsx"
+)
+
+tables_4B = generate_table_4B(N=30) 
 tables_4B["Panel C (h=1) - Regular MIDAS"]
+tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel(
+    "Table_4B_PanelC_MIDAS.xlsx"
+)
 tables_4B["Panel C (h=1) - ADL-MIDAS"]
+tables_4B["Panel C (h=1) - ADL-MIDAS"].to_excel(
+    "Table_4B_PanelC_ADL-MIDAS.xlsx"
+)
 tables_4B["Panel D (h=4) - Regular MIDAS"]
+tables_4B["Panel D (h=4) - Regular MIDAS"].to_excel(
+    "Table_4B_PanelD_MIDAS.xlsx"
+)
 tables_4B["Panel D (h=4) - ADL-MIDAS"]
+tables_4B["Panel D (h=4) - ADL-MIDAS"].to_excel(
+    "Table_4B_PanelD_ADL-MIDAS.xlsx"
+)
+
+table5 = generate_table_5(N=30, rho=0.9, d=0.5)  
+table5.to_excel("Table_5_Simulation3.xlsx")

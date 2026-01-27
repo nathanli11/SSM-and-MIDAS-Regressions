@@ -10,11 +10,30 @@ import numpy as np
 import pandas as pd
 import MC_Simul1 as sim1
 
-def gaussian_loglike(residuals: np.ndarray) -> float:
+def kalman_forecast_series(y, x, h=1, m=3):
+    p_hat = sim1.fit_kalman_mle(y, x, m=m)
+    kf = sim1.periodic_steady_state_kf(p_hat)
+    _, states_low = sim1.run_periodic_kf_filter(kf, y, x)
+
+    fcasts = []
+    actuals = []
+    for t in range(len(y) - h):
+        fcasts.append(sim1.forecast_y_from_state(p_hat, states_low[t], h))
+        actuals.append(y[t+h])
+
+    return np.array(fcasts), np.array(actuals), p_hat
+
+
+def gaussian_loglike(residuals):
+    residuals = np.asarray(residuals)
+    # clip pour éviter explosions numériques
+    residuals = np.clip(residuals, -1e6, 1e6)
     T = len(residuals)
-    sigma2 = np.var(residuals)
-    loglike = -0.5 * T * (np.log(2 * np.pi * sigma2) + 1)
-    return loglike
+    sigma2 = np.mean(residuals**2)
+    if not np.isfinite(sigma2) or sigma2 <= 0:
+        return -np.inf
+    return -0.5 * T * (np.log(2*np.pi*sigma2) + 1)
+
 
 def aic(loglike: float, k: int) -> float:
     return -2 * loglike + 2 * k
@@ -27,14 +46,14 @@ def midas_ic(y, x, h=1, m=3, K=12):
     residuals = act - fcst
     loglike = gaussian_loglike(residuals)
     k = K + 2  # K coefficients + intercept + AR
-    return loglike, k
+    return loglike, k, len(residuals)
 
 def adl_midas_ic(y, x, h=1, m=3, Ky=4, Kx=4):
     fcst, act = sim1.adl_midas_forecast(y, x, h=h, m=m, Ky=Ky, Kx=Kx)
     resid = act - fcst
     ll = gaussian_loglike(resid)
     k = 6   # beta_y, beta_x, 4 theta parameters
-    return ll, k
+    return ll, k, len(resid)
 
 def kalman_ic(y, x, m=3):
     p_hat = sim1.fit_kalman_mle(y, x, m=m)
@@ -68,7 +87,7 @@ def monte_carlo_simulation_3(
     }
 
     for i in range(N):
-        y, x, _, _ = sim1.simulate_one_factor_dgp(
+        y, x, _ = sim1.simulate_one_factor_dgp(
             T=T,
             m=m,
             rho=rho,
@@ -77,12 +96,12 @@ def monte_carlo_simulation_3(
         )
 
         # MIDAS IC
-        midas_ll, midas_k = midas_ic(y, x, h=h, m=m)
-        midas_ic_value = aic(midas_ll, midas_k) if criterion == "AIC" else bic(midas_ll, midas_k, T)
+        midas_ll, midas_k, Tm = midas_ic(y, x, h=h, m=m)
+        midas_ic_value = aic(midas_ll, midas_k) if criterion == "AIC" else bic(midas_ll, midas_k, Tm)
 
         # ADL-MIDAS IC
-        adl_ll, adl_k = adl_midas_ic(y, x, h=h, m=m)
-        adl_ic_value = aic(adl_ll, adl_k) if criterion == "AIC" else bic(adl_ll, adl_k, T)
+        adl_ll, adl_k, Ta = adl_midas_ic(y, x, h=h, m=m)
+        adl_ic_value = aic(adl_ll, adl_k) if criterion == "AIC" else bic(adl_ll, adl_k, Ta)
         
         # Kalman Filter IC
         kf_ll, kf_k, p_hat = kalman_ic(y, x, m=m)
@@ -109,7 +128,7 @@ def monte_carlo_simulation_3(
             f, a = sim1.adl_midas_forecast(y, x, h=h, m=m)
             fcast = f[-1]
         
-        rmspe_selected.append((a[-1] - fcast)**2)
+        rmspe_selected.append((y[-1] - fcast)**2)
     return {
         "RMSPE Selected": np.sqrt(np.mean(rmspe_selected)),
         "Selection frequencies": {

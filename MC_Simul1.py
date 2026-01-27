@@ -120,7 +120,7 @@ def midas_aggregate_x(
     x: shape (T_high, 1)
     """
     w = exp_almon_weights(m - 1, theta1, theta2)
-    return sum(w[k] * x[t * m - 1 - k, 0] for k in range(m))
+    return x[t*m-1, 0] #end of period observation
 
 def midas_x_term(
     x: np.ndarray,
@@ -182,7 +182,9 @@ def adl_midas_forecast(
 
     def objective(theta):
         f, a = model(theta)
-        return np.mean((a - f) ** 2)
+        err = a-f
+        err = np.clip(err, -1e6, 1e6)  # avoid overflow
+        return np.mean(err ** 2)
 
     # Initial values (important for convergence)
     theta0 = np.array([

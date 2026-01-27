@@ -1,9 +1,5 @@
 import numpy as np
 import pandas as pd
-from numpy.linalg import lstsq
-from scipy.optimize import minimize
-from dataclasses import dataclass
-from typing import List, Tuple
 
 import MC_Simul1 as sim1
 
@@ -83,10 +79,10 @@ def monte_carlo_simulation_2(
         kf_forecast, kf_actual = sim1.kalman_filter_forecast(y, x, h=h, m=m)
         rmspe_kf.append(sim1.rmspe(kf_forecast, kf_actual))
 
-        return {
-            "KF / MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_midas),
-            "KF / ADL-MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_adl),
-        }
+    return {
+        "KF / MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_midas),
+        "KF / ADL-MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_adl),
+    }
 
 
 
@@ -138,33 +134,33 @@ def run_panel_simulation_2(
 
 
 # ====================================================
-# GENERATE TABLE 5
+# GENERATE TABLE 4B
 # ====================================================
-def generate_table_5(
+def generate_table_4B(
     N: int = 500,
     rho1: float = 0.9
 ):
     """
-    Generates all panels of Table 5 (Simulation 2).
+    Generates all panels of Table 4B (Simulation 2).
     """
-    print("=== Table 5, Panel A: h = 1 ===")
+    print("=== Table 4B, Panel C: h = 1 ===")
     A_midas, A_adl = run_panel_simulation_2(
         h=1, N=N, rho1=rho1
     )
 
-    print("=== Table 5, Panel B: h = 4 ===")
+    print("=== Table 4B, Panel D: h = 4 ===")
     B_midas, B_adl = run_panel_simulation_2(
         h=4, N=N, rho1=rho1
     )
 
     return {
-        "Panel A (h=1) - Regular MIDAS": A_midas,
-        "Panel A (h=1) - ADL-MIDAS": A_adl,
-        "Panel B (h=4) - Regular MIDAS": B_midas,
-        "Panel B (h=4) - ADL-MIDAS": B_adl,
+        "Panel C (h=1) - Regular MIDAS": A_midas,
+        "Panel C (h=1) - ADL-MIDAS": A_adl,
+        "Panel D (h=4) - Regular MIDAS": B_midas,
+        "Panel D (h=4) - ADL-MIDAS": B_adl,
     }
 
-tables = generate_table_5() # Reduced N for quicker runs
+tables = generate_table_4B() # Reduced N for quicker runs
 
 tables["Panel C (h=1) - Regular MIDAS"]
 tables["Panel C (h=1) - ADL-MIDAS"]

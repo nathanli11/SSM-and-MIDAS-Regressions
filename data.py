@@ -255,16 +255,8 @@ def recursive_rmse_midas(y: pd.Series, x: pd.Series, model_factory, h_list: Iter
             model = model_factory()
 
             y_est = y.loc[start_estimation:est_end]
-            # Preparation de Y et X
-            Y, Xlags, _ = model.build_midas_xy(
-                y=y_est,
-                x=x,
-                Kx_quarters=(model.Kx_quarters),
-                m=model.m,
-                h=h,
-            )
             # Fit
-            model.fit(Y, Xlags)
+            model.fit(y_est, x, h=h)
 
             # Prévision de y_{t+(h-1)} en utilisant info mensuelle jusqu’au 2e mois de t
             # (pour h=1 => y_t)
@@ -296,7 +288,8 @@ if __name__ == "__main__":
     h_list = range(1, 9)
     with open("regressors_info.json", "r", encoding="utf-8") as f:
         reg_info = json.load(f)
-    model_factory = lambda: DLMidas(Kx_quarters=5, m=3, include_intercept=False)
+    model_factory_dl = lambda: DLMidas(Kx_quarters=5, m=3, include_intercept=False)
+    model_factory_adl = lambda: DLMidas(Ky_quarters=1, Kx_quarters=5, m=3, include_intercept=False)
     reload_data = False
     # -------------- Data --------------
     if reload_data:
@@ -318,13 +311,19 @@ if __name__ == "__main__":
     reg["Date"] = pd.to_datetime(reg["Date"]).dt.to_period("M")
     reg = reg.set_index("Date")
 
+    reg = reg["LEI"].to_frame() #test lei
+
     res = {}
     for asset in reg.columns:
         print(f'Asset: {asset}')
         # Select asset
         x = reg[asset]
         # Run model
-        res_rmse = recursive_rmse_midas(y, x, model_factory, h_list, reg_info)
+        try:
+            res_rmse = recursive_rmse_midas(y, x, model_factory, h_list, reg_info)
+        except Exception as e:
+            print('Erreur: ', e)
+            res_rmse = {}
         # Append res
         res[asset] = res_rmse
     print(res)

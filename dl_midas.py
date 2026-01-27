@@ -6,30 +6,8 @@ from scipy.optimize import minimize
 from midas import Midas, MIDASResult
 
 class DLMidas(Midas):
-    def __init__(self, Kx_quarters, m, include_intercept = False):
-        super().__init__(Kx_quarters, m, include_intercept)
-
-    def _build_regressors(self, y: np.ndarray, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Construct Y_target, X_lags
-        """
-
-        # Make sure to have 1d arrays
-        y = np.asarray(y, dtype=float).reshape(-1)
-        x = np.asarray(x, dtype=float).reshape(-1)
-
-        '''# Check that the regressor x has same period of observation as y
-        T = y.size
-        needed_x = T * self.m
-        if x.size < needed_x:
-            raise ValueError(f"Regressor X must have at least T*m={needed_x} observations (got {x.size}).")
-        '''
-
-        # Build lagged matrixes
-        y, _ = self.lagged_matrix(y)
-        _, x_lagged = self.lagged_matrix(x)
-
-        return y, x_lagged
+    def __init__(self, m, Kx_quarters, Ky_quarters, include_intercept = False):
+        super().__init__(m, Kx_quarters, Ky_quarters, include_intercept)
 
     # Estimates intercept + beta
     @staticmethod
@@ -62,11 +40,76 @@ class DLMidas(Midas):
         if not np.isfinite(sse):
             return 1e50
         return sse
-        
+    
+    def build_midas_xy(self,
+        y: pd.Series,          # index PeriodIndex freq='Q' (ou DatetimeIndex convertible)
+        x: pd.Series,          # index DatetimeIndex mensuel (freq MS idéalement)
+        h: int = 1,      # h trimestres à prévoir
+    ):
+        """
+        Construit (Y, Xlags, meta_index) pour une régression Regular MIDAS:
+        y_{t+h} ~ beta * sum_j w_j x_{t,2 - j}
+
+        - Y : valeurs de y_{t+h} (cible)
+        - Xlags : matrice (n_obs, m*Kx) avec les lags mensuels (du plus récent au plus ancien)
+        - meta_index : index des trimestres t (origine des régressseurs)
+        """
+
+        # Harmonise index de y en PeriodIndex quarterly, et index de x en DateTimeIndex MS
+        y = y.copy()
+        if not isinstance(y.index, pd.PeriodIndex):
+            y.index = pd.PeriodIndex(y.index, freq="Q")
+        x = x.copy()
+        if isinstance(x.index, pd.PeriodIndex):
+            x.index = x.index.to_timestamp(how="start").to_period("M").to_timestamp() 
+
+        Kx_months = self.m * self.Kx_quarters
+
+        rows_Y = []
+        rows_X = []
+        rows_t = []
+
+        for t in y.index:
+            target = t - h  # y_{t+h}
+            if target not in y.index:
+                continue
+
+            cutoff = self.second_month_of_quarter(t)  # info date pour le trimestre t
+
+            # On veut les lags mensuels finissant à cutoff (inclus)
+            # Exemple: n_month_lags=18 => cutoff, cutoff-1M, ..., cutoff-17M
+            lag_months = pd.date_range(end=cutoff, periods=Kx_months, freq="MS")
+            # Si cutoff n'est pas un MS exact, on aligne au MS le plus proche (début du mois)
+            cutoff_ms = pd.Timestamp(cutoff).to_period("M").to_timestamp(how="start")
+            lag_months = pd.date_range(end=cutoff_ms, periods=Kx_months, freq="MS")
+
+            # Vérifie disponibilité
+            if (lag_months[0] not in x.index) or (lag_months[-1] not in x.index):
+                continue
+            if x.loc[lag_months].isna().any():
+                continue
+
+            x_vec = x.loc[lag_months].to_numpy(dtype=float)  # du plus ancien au plus récent (date_range)
+            x_vec = x_vec[::-1]  # on met "plus récent -> plus ancien" pour matcher weights(j=1..K)
+
+            rows_X.append(x_vec)
+            rows_Y.append(float(y.loc[target]))
+            rows_t.append(t)
+
+        if len(rows_Y) == 0:
+            raise ValueError("Aucune observation utilisable (alignement dates / NaN / lags).")
+
+        Y = np.asarray(rows_Y, dtype=float)
+        Xlags = np.asarray(rows_X, dtype=float)
+        meta = pd.PeriodIndex(rows_t, freq="Q")
+
+        return Y, Xlags, meta
+    
     def fit(
         self,
-        Y: np.ndarray,
-        Xlags: np.ndarray,
+        y_est: pd.Series,
+        x: pd.Series,
+        h: int = 1,
         theta_init: Tuple[float, float] = (0.0, 0.0),
         opt_method: str = "Nelder-Mead",
         opt_options: Optional[Dict[str, Any]] = None,
@@ -76,6 +119,10 @@ class DLMidas(Midas):
         Returns MIDASResult and stores fitted parameters in self.theta_, self.beta_.
         """
 
+        # Preparation de Y et X
+        Y, Xlags, _ = self.build_midas_xy(y=y_est, x=x, h=h)
+
+        # Vecteur des thetas initiaux
         x0 = np.array(theta_init, dtype=float)
 
         # Optimize tetha to minimize SSE
@@ -88,7 +135,7 @@ class DLMidas(Midas):
         )
 
         theta_hat = np.array(res.x, dtype=float)
-        w_hat = self.weights(theta_hat[0], theta_hat[1])
+        w_hat = self.weights(*theta_hat)
         z_hat = Xlags @ w_hat
         beta_hat = self._ols_beta(Y, z_hat, self.include_intercept)
 

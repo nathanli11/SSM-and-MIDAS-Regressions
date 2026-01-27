@@ -14,10 +14,14 @@ class MIDASResult:
     message: str
 
 class Midas:
-    def __init__(self, Kx_quarters: int, m: int, include_intercept: bool = False):
+    def __init__(self, m: int, Kx_quarters: int, Ky_quarters: int = 0, include_intercept: bool = False):
         if Kx_quarters < 1 or not isinstance(Kx_quarters, int):
-            raise ValueError("Lag K must be an integer >= 1")
+            raise ValueError("Lag K_x must be an integer >= 1")
         self.Kx_quarters = Kx_quarters
+
+        if Ky_quarters < 0 or not isinstance(Ky_quarters, int):
+            raise ValueError("Lag K_y must be an integer >= 1")
+        self.Ky_quarters = Ky_quarters
 
         if m <= 0:
             raise ValueError("m must be >= 1")
@@ -34,26 +38,6 @@ class Midas:
         x = np.array([theta1 * j + theta2 * j**2 for j in range(1, (self.Kx_quarters*self.m)+1)])
         w = np.exp(x - x.max())   # -x.max pour la stabilité numérique
         return w / w.sum()
-
-    def lagged_matrix(self, x: np.ndarray):
-        """
-        Construit la matrice laggé de x, et retourne x et x_lagged tronqué aux indices de K+1 à T
-        """
-        x = np.asarray(x)
-        T = x.shape[0]
-        
-        if x.ndim != 1:
-            raise ValueError("x doit être un vecteur 1D.")
-
-        if self.Kx_quarters < 1:
-            raise ValueError("K doit être >= 1.")
-        if T <= self.Kx_quarters + 1:
-            raise ValueError("Il faut n > K+1 pour construire y et X.")
-        
-        x_lagged = np.column_stack([x[self.Kx_quarters+1 - j : T - j].T for j in range(1, self.Kx_quarters+1)])
-        x = x[self.Kx_quarters+1:]
-
-        return x, x_lagged
     
     @staticmethod
     def second_month_of_quarter(q_period: pd.Period) -> pd.Timestamp:
@@ -94,7 +78,7 @@ class Midas:
         rows_t = []
 
         for t in y.index:
-            target = t + h  # y_{t+h}
+            target = t - h  # y_{t+h}
             if target not in y.index:
                 continue
 

@@ -116,3 +116,81 @@ def monte_carlo_simulation_3(
             k: v / N for k, v in selection_count.items()
         }
     }
+
+
+# ====================================================
+# ONE PANEL (fixed h, fixed criterion)
+# ====================================================
+def run_panel_simulation_3(
+    h: int,
+    criterion: str,
+    N: int = 500,
+    T: int = 40,
+    m: int = 3,
+    rho: float = 0.9,
+    d: float = 0.5
+):
+    """
+    Runs one panel of Table 6.
+    Returns a Series with RMSPE and selection frequencies.
+    """
+    out = monte_carlo_simulation_3(
+        N=N,
+        T=T,
+        m=m,
+        rho=rho,
+        d=d,
+        h=h,
+        criterion=criterion
+    )
+
+    res = {
+        "RMSPE": out["RMSPE"],
+        "KF": out["Selection frequencies"]["KF"],
+        "MIDAS": out["Selection frequencies"]["MIDAS"],
+        "ADL-MIDAS": out["Selection frequencies"]["ADL-MIDAS"],
+    }
+
+    return pd.Series(res)
+
+
+# ====================================================
+# GENERATE TABLE 6
+# ====================================================
+def generate_table_6(
+    N: int = 500,
+    rho: float = 0.9,
+    d: float = 0.5
+):
+    """
+    Generates Table 6 for Simulation 3.
+    """
+    table = {}
+
+    for criterion in ["AIC", "BIC"]:
+        for h in [1, 4]:
+            print(f"Running Simulation 3 | {criterion} | h={h}")
+            table[f"{criterion}, h={h}"] = run_panel_simulation_3(
+                h=h,
+                criterion=criterion,
+                N=N,
+                rho=rho,
+                d=d
+            )
+
+    return pd.DataFrame(table).T
+
+# DEBUG MODE
+table6 = generate_table_6(
+    N=10,
+    rho=0.9,
+    d=0.5
+)
+
+print(table6)
+# NORMAL MODE
+#table6 = generate_table_6(
+#    N=500,
+#    rho=0.9,
+#    d=0.5
+#)  

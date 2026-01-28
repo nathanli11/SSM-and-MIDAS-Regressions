@@ -695,8 +695,7 @@ def simulate_one_factor_dgp(T=40, m=3, rho=0.9, d=0.5, seed=None):
 def simulate_two_factor_dgp(
         T=40,
         m=3,
-        rho1=0.9,
-        rho2=0.5,
+        rho=0.9,
         d=0.5,
         seed=None
 ):
@@ -714,8 +713,8 @@ def simulate_two_factor_dgp(
     f1 = np.zeros(Th)
     f2 = np.zeros(Th)
     for t in range(1, Th):
-        f1[t] = rho1 * f1[t - 1] + eta1[t]
-        f2[t] = rho2 * f2[t - 1] + eta2[t]
+        f1[t] = rho * f1[t - 1] + eta1[t]
+        f2[t] = rho * f2[t - 1] + eta2[t]
     
     # Measurment errors
     uy = np.zeros(Th)
@@ -823,7 +822,7 @@ def monte_carlo_simulation_2(
         N=500,
         T=40,
         m=3,
-        rho1=0.9,
+        rho=0.9,
         d=0.5,
         h=1
 ):
@@ -835,7 +834,7 @@ def monte_carlo_simulation_2(
         y, x, _, _ = simulate_two_factor_dgp(
             T=T,
             m=m,
-            rho1=rho1,
+            rho=rho,
             d=d,
             seed=i
         )
@@ -967,27 +966,29 @@ def run_panel_simulation_2(
     h: int,
     N: int = 500,
     T: int = 40,
-    m: int = 3,
-    rho1: float = 0.9
+    m: int = 3
 ):
-    res = pd.DataFrame(index=D_GRID, columns=["KF / MIDAS", "KF / ADL-MIDAS"], dtype=float)
+    res_midas = pd.DataFrame(index=D_GRID, columns=RHO_GRID)
+    res_adl   = pd.DataFrame(index=D_GRID, columns=RHO_GRID)
 
     for d in D_GRID:
-        out = monte_carlo_simulation_2(
-            N=N,
-            T=T,
-            m=m,
-            rho1=rho1,
-            d=d,
-            h=h
-        )
+        for rho in RHO_GRID:
+            out = monte_carlo_simulation_2(
+                N=N,
+                T=T,
+                m=m,
+                rho=rho,
+                d=d,
+                h=h
+            )
 
-        res.loc[d, "KF / MIDAS"] = out["KF / MIDAS"]
-        res.loc[d, "KF / ADL-MIDAS"] = out["KF / ADL-MIDAS"]
+            res_midas.loc[d, rho] = out["KF / MIDAS"]
+            res_adl.loc[d, rho]   = out["KF / ADL-MIDAS"]
 
-        print(f"h={h} | d={d:>4} | done")
+            print(f"h={h} | d={d:>4} | rho={rho:>5} | done")
 
-    return res
+    return res_midas, res_adl
+
 
 def run_panel_simulation_3(
     h: int,
@@ -1042,18 +1043,19 @@ def generate_table_4A(N=500):
     }
 
 def generate_table_4B(N=500):
-    print("=== Table 4B, Panel C: h = 1 ===")
-    panel_C = run_panel_simulation_2(h=1, N=N)
+    print("=== Table 4 – Panel C (Two-Factor DGP, h=1) ===")
+    C_midas, C_adl = run_panel_simulation_2(h=1, N=N)
 
-    print("=== Table 4B, Panel D: h = 4 ===")
-    panel_D = run_panel_simulation_2(h=4, N=N)
+    print("=== Table 4 – Panel D (Two-Factor DGP, h=4) ===")
+    D_midas, D_adl = run_panel_simulation_2(h=4, N=N)
 
     return {
-    "Panel C (h=1) - Regular MIDAS": panel_C[["KF / MIDAS"]],
-    "Panel C (h=1) - Multiplicative MIDAS": panel_C[["KF / ADL-MIDAS"]],
-    "Panel D (h=4) - Regular MIDAS": panel_D[["KF / MIDAS"]],
-    "Panel D (h=4) - Multiplicative MIDAS": panel_D[["KF / ADL-MIDAS"]],
-}
+        "Panel C (h=1) - Regular MIDAS": C_midas,
+        "Panel C (h=1) - Multiplicative MIDAS": C_adl,
+        "Panel D (h=4) - Regular MIDAS": D_midas,
+        "Panel D (h=4) - Multiplicative MIDAS": D_adl,
+    }
+
 
 def generate_table_5(N: int = 500):
     """
@@ -1091,43 +1093,32 @@ def generate_table_5(N: int = 500):
         "Panel D (BIC, h=4) - Multiplicative MIDAS": D_adl,
     }
 
+tables_4B = generate_table_4B(N=5)
+
+tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel("Table_4_PanelC_MIDAS.xlsx")
+tables_4B["Panel C (h=1) - Multiplicative MIDAS"].to_excel("Table_4_PanelC_ADL_MIDAS.xlsx")
+
+tables_4B["Panel D (h=4) - Regular MIDAS"].to_excel("Table_4_PanelD_MIDAS.xlsx")
+tables_4B["Panel D (h=4) - Multiplicative MIDAS"].to_excel("Table_4_PanelD_ADL_MIDAS.xlsx")
 
 
 tables_4A = generate_table_4A(N=5)
-tables_4A["Panel A (h=1) - Regular MIDAS"]
 tables_4A["Panel A (h=1) - Regular MIDAS"].to_excel(
     "Table_4A_PanelA_MIDAS.xlsx"
 )
-tables_4A["Panel A (h=1) - Multiplicative MIDAS"]
 tables_4A["Panel A (h=1) - Multiplicative MIDAS"].to_excel(
     "Table_4A_PanelA_Multiplicative_MIDAS.xlsx"
 )
-tables_4A["Panel B (h=4) - Regular MIDAS"]
+
 tables_4A["Panel B (h=4) - Regular MIDAS"].to_excel(
     "Table_4A_PanelB_MIDAS.xlsx"
 )
-tables_4A["Panel B (h=4) - Multiplicative MIDAS"]
+
 tables_4A["Panel B (h=4) - Multiplicative MIDAS"].to_excel(
     "Table_4A_PanelB_Multiplicative_MIDAS.xlsx"
 )
 
-tables_4B = generate_table_4B(N=5) 
-tables_4B["Panel C (h=1) - Regular MIDAS"]
-tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel(
-    "Table_4B_PanelC_MIDAS.xlsx"
-)
-tables_4B["Panel C (h=1) - Multiplicative MIDAS"]
-tables_4B["Panel C (h=1) - Multiplicative MIDAS"].to_excel(
-    "Table_4B_PanelC_Multiplicative_MIDAS.xlsx"
-)
-tables_4B["Panel D (h=4) - Regular MIDAS"]
-tables_4B["Panel D (h=4) - Regular MIDAS"].to_excel(
-    "Table_4B_PanelD_MIDAS.xlsx"
-)
-tables_4B["Panel D (h=4) - Multiplicative MIDAS"]
-tables_4B["Panel D (h=4) - Multiplicative MIDAS"].to_excel(
-    "Table_4B_PanelD_Multiplicative_MIDAS.xlsx"
-)
+
 
 tables_5 = generate_table_5(N=5)
 

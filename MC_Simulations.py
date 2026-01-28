@@ -777,7 +777,6 @@ def kalman_ic(y, x, m=3):
     k = 2 + 3   # rho, d + 3 variances
     return ll, k, p_hat
 
-
 def hf_lag_at_low_t(x: np.ndarray, t: int, m: int, lag_hf: int) -> float:
     """
     x is high-frequency array shape (T*m, 1) or (T*m,)
@@ -825,7 +824,6 @@ def monte_carlo_simulation_2(
         T=40,
         m=3,
         rho1=0.9,
-        rho2=0.5,
         d=0.5,
         h=1
 ):
@@ -838,7 +836,6 @@ def monte_carlo_simulation_2(
             T=T,
             m=m,
             rho1=rho1,
-            rho2=rho2,
             d=d,
             seed=i
         )
@@ -973,32 +970,24 @@ def run_panel_simulation_2(
     m: int = 3,
     rho1: float = 0.9
 ):
-    """
-    Runs one panel of Table 4B for fixed horizon h and rho1.
-    Rows: d
-    Columns: rho2
-    """
-    res_midas = pd.DataFrame(index=D_GRID, columns=RHO_GRID, dtype=float)
-    res_adl   = pd.DataFrame(index=D_GRID, columns=RHO_GRID, dtype=float)
+    res = pd.DataFrame(index=D_GRID, columns=["KF / MIDAS", "KF / ADL-MIDAS"], dtype=float)
 
     for d in D_GRID:
-        for rho2 in RHO_GRID:
-            out = monte_carlo_simulation_2(
-                N=N,
-                T=T,
-                m=m,
-                rho1=rho1,
-                rho2=rho2,
-                d=d,
-                h=h
-            )
+        out = monte_carlo_simulation_2(
+            N=N,
+            T=T,
+            m=m,
+            rho1=rho1,
+            d=d,
+            h=h
+        )
 
-            res_midas.loc[d, rho2] = out["KF / MIDAS"]
-            res_adl.loc[d, rho2]   = out["KF / ADL-MIDAS"]
+        res.loc[d, "KF / MIDAS"] = out["KF / MIDAS"]
+        res.loc[d, "KF / ADL-MIDAS"] = out["KF / ADL-MIDAS"]
 
-            print(f"h={h} | rho1={rho1} | d={d:>4} | rho2={rho2:>5} | done")
+        print(f"h={h} | d={d:>4} | done")
 
-    return res_midas, res_adl
+    return res
 
 def run_panel_simulation_3(
     h: int,
@@ -1052,29 +1041,19 @@ def generate_table_4A(N=500):
         "Panel B (h=4) - Multiplicative MIDAS": B_adl,
     }
 
-def generate_table_4B(
-    N: int = 500,
-    rho1: float = 0.9
-):
-    """
-    Generates all panels of Table 4B (Simulation 2).
-    """
+def generate_table_4B(N=500):
     print("=== Table 4B, Panel C: h = 1 ===")
-    A_midas, A_adl = run_panel_simulation_2(
-        h=1, N=N, rho1=rho1
-    )
+    panel_C = run_panel_simulation_2(h=1, N=N)
 
     print("=== Table 4B, Panel D: h = 4 ===")
-    B_midas, B_adl = run_panel_simulation_2(
-        h=4, N=N, rho1=rho1
-    )
+    panel_D = run_panel_simulation_2(h=4, N=N)
 
     return {
-        "Panel C (h=1) - Regular MIDAS": A_midas,
-        "Panel C (h=1) - Multiplicative MIDAS": A_adl,
-        "Panel D (h=4) - Regular MIDAS": B_midas,
-        "Panel D (h=4) - Multiplicative MIDAS": B_adl,
-    }
+    "Panel C (h=1) - Regular MIDAS": panel_C[["KF / MIDAS"]],
+    "Panel C (h=1) - Multiplicative MIDAS": panel_C[["KF / ADL-MIDAS"]],
+    "Panel D (h=4) - Regular MIDAS": panel_D[["KF / MIDAS"]],
+    "Panel D (h=4) - Multiplicative MIDAS": panel_D[["KF / ADL-MIDAS"]],
+}
 
 def generate_table_5(N: int = 500):
     """
@@ -1114,7 +1093,7 @@ def generate_table_5(N: int = 500):
 
 
 
-tables_4A = generate_table_4A(N=100)
+tables_4A = generate_table_4A(N=5)
 tables_4A["Panel A (h=1) - Regular MIDAS"]
 tables_4A["Panel A (h=1) - Regular MIDAS"].to_excel(
     "Table_4A_PanelA_MIDAS.xlsx"
@@ -1132,7 +1111,7 @@ tables_4A["Panel B (h=4) - Multiplicative MIDAS"].to_excel(
     "Table_4A_PanelB_Multiplicative_MIDAS.xlsx"
 )
 
-tables_4B = generate_table_4B(N=100) 
+tables_4B = generate_table_4B(N=5) 
 tables_4B["Panel C (h=1) - Regular MIDAS"]
 tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel(
     "Table_4B_PanelC_MIDAS.xlsx"
@@ -1150,7 +1129,7 @@ tables_4B["Panel D (h=4) - Multiplicative MIDAS"].to_excel(
     "Table_4B_PanelD_Multiplicative_MIDAS.xlsx"
 )
 
-tables_5 = generate_table_5(N=100)
+tables_5 = generate_table_5(N=5)
 
 tables_5["Panel A (AIC, h=1) - Regular MIDAS"].to_excel(
     "Table_5_PanelA_MIDAS.xlsx"

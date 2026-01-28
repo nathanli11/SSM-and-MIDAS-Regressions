@@ -406,6 +406,67 @@ def midas_regular_forecast(y, x, h=1, m=3, K=12):
 
     return forecasts, actuals
 
+
+def midas_regular_forecast_paper(y, x, h=1, m=3, K=12):
+    """
+    Paper-style Regular MIDAS:
+      y_{t+h} = b0 + b1*y_t + b2 * sum_{j=0..K} w_j(theta1,theta2) x_{t - j/m} + e
+    where w_j are exponential Almon weights over HIGH-frequency lags (0..K).
+
+    Returns: (forecasts, actuals)
+    """
+    y = np.asarray(y).astype(float)
+    x = np.asarray(x).astype(float)
+    T = len(y)
+
+    # build usable sample indices t where all needed lags exist and y[t+h] exists
+    t_min = int(np.ceil((K + 1) / m))  # conservative; ensures t*m-1-K >= 0
+    t_idx = np.arange(t_min, T - h)
+
+    if len(t_idx) < 5:
+        return np.array([]), np.array([])
+
+    Y = y[t_idx + h]
+
+    def compute_x_midas(theta1, theta2):
+        w = exp_almon_weights(K, theta1, theta2)  # length K+1
+        Xm = np.zeros(len(t_idx))
+        for ii, t in enumerate(t_idx):
+            s = 0.0
+            for j in range(K + 1):
+                val = hf_lag_at_low_t(x, t, m, j)
+                if np.isnan(val):
+                    s = np.nan
+                    break
+                s += w[j] * val
+            Xm[ii] = s
+        return Xm
+
+    def sse(theta):
+        theta1, theta2 = float(theta[0]), float(theta[1])
+        Xm = compute_x_midas(theta1, theta2)
+        if np.any(np.isnan(Xm)):
+            return 1e18
+
+        X = np.column_stack([np.ones(len(t_idx)), y[t_idx], Xm])
+        beta = lstsq(X, Y, rcond=None)[0]
+        resid = Y - X @ beta
+        return float(np.mean(resid ** 2))
+
+    # reasonable init + bounds to avoid exp overflow and weird shapes
+    theta0 = np.array([-0.1, -0.01])
+    bnds = [(-10.0, 10.0), (-10.0, 10.0)]
+    res = minimize(sse, theta0, method="L-BFGS-B", bounds=bnds)
+
+    th1, th2 = float(res.x[0]), float(res.x[1])
+    Xm = compute_x_midas(th1, th2)
+    X = np.column_stack([np.ones(len(t_idx)), y[t_idx], Xm])
+    beta = lstsq(X, Y, rcond=None)[0]
+
+    forecasts = X @ beta
+    actuals = Y
+    return np.asarray(forecasts), np.asarray(actuals)
+
 def midas_aggregate_x(
     x: np.ndarray,
     t: int,
@@ -505,8 +566,92 @@ def adl_midas_forecast(
 
     return model(res.x)
 
+
+def adl_midas_forecast_paper(y, x, h=1, m=3, Ky=4, Kx=4):
+    """
+    Paper-style Multiplicative MIDAS (ADL-MIDAS):
+      y_{t+h} = b_y * sum_{j=0..Ky} w_y(j;theta_y) y_{t-j}
+              + b_x * sum_{j=0..Kx} w_x_inter(j;theta_x_inter) x_agg(t-j;theta_x_intra)
+              + e
+
+    where:
+      x_agg(t;theta_x_intra) = sum_{k=0..m-1} w_x_intra(k;theta_x_intra) x_{t - k/m}
+      and w_* are exponential Almon weights.
+    """
+    y = np.asarray(y).astype(float)
+    x = np.asarray(x).astype(float)
+    T = len(y)
+
+    # Need y-lags up to Ky and x inter-lags up to Kx plus intra m-1
+    t_min = max(Ky, Kx) + 1
+    t_idx = np.arange(t_min, T - h)
+    if len(t_idx) < 5:
+        return np.array([]), np.array([])
+
+    Y = y[t_idx + h]
+
+    def x_intra_agg(t, th_intra1, th_intra2):
+        w_intra = exp_almon_weights(m - 1, th_intra1, th_intra2)  # length m
+        s = 0.0
+        for k in range(m):
+            val = hf_lag_at_low_t(x, t, m, k)  # lag_hf=k within the quarter
+            if np.isnan(val):
+                return np.nan
+            s += w_intra[k] * val
+        return s
+
+    def build_terms(theta):
+        th_y1, th_y2, th_xi1, th_xi2, th_xa1, th_xa2 = map(float, theta)
+
+        w_y = exp_almon_weights(Ky, th_y1, th_y2)       # Ky+1
+        w_xi = exp_almon_weights(Kx, th_xi1, th_xi2)    # inter Kx+1
+
+        Yterm = np.zeros(len(t_idx))
+        Xterm = np.zeros(len(t_idx))
+
+        for ii, t in enumerate(t_idx):
+            # MIDAS on y (low-frequency lags)
+            yt = 0.0
+            for j in range(Ky + 1):
+                yt += w_y[j] * y[t - j]
+            Yterm[ii] = yt
+
+            # double MIDAS on x: intra -> inter
+            xt = 0.0
+            for j in range(Kx + 1):
+                xa = x_intra_agg(t - j, th_xa1, th_xa2)
+                if np.isnan(xa):
+                    xt = np.nan
+                    break
+                xt += w_xi[j] * xa
+            Xterm[ii] = xt
+
+        return Yterm, Xterm
+
+    def mse(theta):
+        Yterm, Xterm = build_terms(theta)
+        if np.any(np.isnan(Xterm)) or np.any(np.isnan(Yterm)):
+            return 1e18
+
+        # Profile out betas by OLS: Y ≈ b_y*Yterm + b_x*Xterm
+        Xreg = np.column_stack([Yterm, Xterm])
+        beta = lstsq(Xreg, Y, rcond=None)[0]
+        resid = Y - Xreg @ beta
+        return float(np.mean(resid ** 2))
+
+    theta0 = np.array([-0.1, -0.01,  -0.1, -0.01,  -0.1, -0.01])
+    bnds = [(-10, 10)] * 6
+    res = minimize(mse, theta0, method="L-BFGS-B", bounds=bnds)
+
+    Yterm, Xterm = build_terms(res.x)
+    Xreg = np.column_stack([Yterm, Xterm])
+    beta = lstsq(Xreg, Y, rcond=None)[0]
+
+    forecasts = Xreg @ beta
+    actuals = Y
+    return np.asarray(forecasts), np.asarray(actuals)
 #============================
-# PIB
+# DGP
 #============================
 def simulate_one_factor_dgp(T=40, m=3, rho=0.9, d=0.5, seed=None):
     if seed is not None:
@@ -604,18 +749,34 @@ def aic(loglike: float, k: int) -> float:
 def bic(loglike: float, k: int, T: int) -> float:
     return -2 * loglike + k * np.log(T)
 
+#def midas_ic(y, x, h=1, m=3, K=12):
+#    fcst, act = midas_regular_forecast(y, x, h=h, m=m, K=K)
+#    residuals = act - fcst
+#    loglike = gaussian_loglike(residuals)
+#    k = K + 2  # K coefficients + intercept + AR
+#    return loglike, k, len(residuals)
+
+#def adl_midas_ic(y, x, h=1, m=3, Ky=4, Kx=4):
+#    fcst, act = adl_midas_forecast(y, x, h=h, m=m, Ky=Ky, Kx=Kx)
+#    resid = act - fcst
+#    ll = gaussian_loglike(resid)
+#    k = 6   # beta_y, beta_x, 4 theta parameters
+#    return ll, k, len(resid)
+
 def midas_ic(y, x, h=1, m=3, K=12):
-    fcst, act = midas_regular_forecast(y, x, h=h, m=m, K=K)
+    fcst, act = midas_regular_forecast_paper(y, x, h=h, m=m, K=K)
     residuals = act - fcst
     loglike = gaussian_loglike(residuals)
-    k = K + 2  # K coefficients + intercept + AR
+    # params: b0,b1,b2 + theta1,theta2  => 5
+    k = 5
     return loglike, k, len(residuals)
 
 def adl_midas_ic(y, x, h=1, m=3, Ky=4, Kx=4):
-    fcst, act = adl_midas_forecast(y, x, h=h, m=m, Ky=Ky, Kx=Kx)
+    fcst, act = adl_midas_forecast_paper(y, x, h=h, m=m, Ky=Ky, Kx=Kx)
     resid = act - fcst
     ll = gaussian_loglike(resid)
-    k = 6   # beta_y, beta_x, 4 theta parameters
+    # betas(2) + theta_y(2) + theta_x_inter(2) + theta_x_intra(2) => 8
+    k = 8
     return ll, k, len(resid)
 
 def kalman_ic(y, x, m=3):
@@ -624,6 +785,21 @@ def kalman_ic(y, x, m=3):
     k = 2 + 3   # rho, d + 3 variances
     return ll, k, p_hat
 
+
+def hf_lag_at_low_t(x: np.ndarray, t: int, m: int, lag_hf: int) -> float:
+    """
+    x is high-frequency array shape (T*m, 1) or (T*m,)
+    Low-frequency time t corresponds to end-of-period high-frequency index t*m-1.
+    lag_hf=0 means x at end of period t.
+    """
+    if x.ndim == 2:
+        x1 = x[:, 0]
+    else:
+        x1 = x
+    idx = t * m - 1 - lag_hf
+    if idx < 0 or idx >= len(x1):
+        return np.nan
+    return float(x1[idx])
 #============================
 # Monte Carlo Simulation
 #============================
@@ -637,11 +813,11 @@ def monte_carlo_simulation_1(
     for i in range(N):
         y, x, _= simulate_one_factor_dgp(T=T, m=m, rho=rho, d=d, seed=i)
         # MIDAS Forecast
-        midas_forecast, midas_actual = midas_regular_forecast(y, x, h=h, m=m)
+        midas_forecast, midas_actual = midas_regular_forecast_paper(y, x, h=h, m=m)
         rmspe_midas.append(rmspe(midas_forecast, midas_actual))
 
         # ADL-MIDAS Forecast
-        adl_forecast, adl_actual = adl_midas_forecast(y, x, h=h, m=m)
+        adl_forecast, adl_actual = adl_midas_forecast_paper(y, x, h=h, m=m)
         rmspe_adl_midas.append(rmspe(adl_forecast, adl_actual))
 
         kf_forecast, kf_actual = kalman_filter_forecast(y, x, h=h, m=m)
@@ -676,86 +852,86 @@ def monte_carlo_simulation_2(
         )
 
         # MIDAS Forecast
-        midas_forecast, midas_actual = midas_regular_forecast(y, x, h=h, m=m)
+        midas_forecast, midas_actual = midas_regular_forecast_paper(y, x, h=h, m=m)
         rmspe_midas.append(rmspe(midas_forecast, midas_actual))
 
         # ADL-MIDAS Forecast
-        adl_forecast, adl_actual = adl_midas_forecast(y, x, h=h, m=m)
+        adl_forecast, adl_actual = adl_midas_forecast_paper(y, x, h=h, m=m)
         rmspe_adl.append(rmspe(adl_forecast, adl_actual))
 
         # Kalman Filter Forecast (MISSPECIFIED)
-        kf_forecast, kf_actual = kalman_filter_forecast(y, x, h=h, m=m)
-        rmspe_kf.append(rmspe(kf_forecast, kf_actual))
+        try:    
+            kf_forecast, kf_actual = kalman_filter_forecast(y, x, h=h, m=m)
+            rmspe_kf.append(rmspe(kf_forecast, kf_actual))
+        except RuntimeError:
+            # Riccati did not converge; skip this iteration
+            continue
     return {
         "KF / MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_midas),
         "KF / ADL-MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_adl),
     }
 
 def monte_carlo_simulation_3(
-        N=500,
-        T=40,
-        m=3,
-        rho=0.9,
-        d=0.5,
-        h=1,
-        criterion="AIC" #or BIC
+    N=500,
+    T=40,
+    m=3,
+    rho=0.9,
+    d=0.5,
+    h=1,
+    criterion="AIC"
 ):
-    rmspe_selected = []
-    selection_count = {
-        "KF": 0,
-        "MIDAS": 0,
-        "ADL-MIDAS": 0
-    }
+    rmspe_kf = []
+    rmspe_midas = []
+    rmspe_adl = []
 
     for i in range(N):
         y, x, _ = simulate_one_factor_dgp(
-            T=T,
-            m=m,
-            rho=rho,
-            d=d,
-            seed=i
+            T=T, m=m, rho=rho, d=d, seed=i
         )
 
-        # MIDAS IC
-        midas_ll, midas_k, Tm = midas_ic(y, x, h=h, m=m)
-        midas_ic_value = aic(midas_ll, midas_k) if criterion == "AIC" else bic(midas_ll, midas_k, Tm)
+        # ======================
+        # MIDAS
+        # ======================
+        f_m, a_m = midas_regular_forecast_paper(y, x, h=h, m=m)
+        rmspe_midas.append(rmspe(f_m, a_m))
 
-        # ADL-MIDAS IC
-        adl_ll, adl_k, Ta = adl_midas_ic(y, x, h=h, m=m)
-        adl_ic_value = aic(adl_ll, adl_k) if criterion == "AIC" else bic(adl_ll, adl_k, Ta)
-        
-        # Kalman Filter IC
-        kf_ll, kf_k, p_hat = kalman_ic(y, x, m=m)
-        kf_ic_value = aic(kf_ll, kf_k) if criterion == "AIC" else bic(kf_ll, kf_k, T)
+        # ======================
+        # ADL-MIDAS
+        # ======================
+        f_a, a_a = adl_midas_forecast_paper(y, x, h=h, m=m)
+        rmspe_adl.append(rmspe(f_a, a_a))
 
-        # Select best model
-        ic_dict = {
-            "MIDAS": midas_ic_value,
-            "ADL-MIDAS": adl_ic_value,
-            "KF": kf_ic_value
-        }
-        best_model = min(ic_dict, key=ic_dict.get)
-        selection_count[best_model] += 1
+        # ======================
+        # Kalman: select #factors by IC
+        # ======================
+        ic_vals = {}
+        params = {}
 
-        # Forecast with selected model
-        if best_model == "KF":
-            kf = periodic_steady_state_kf(p_hat)
-            _, states_low = run_periodic_kf_filter(kf, y, x)
-            fcast = forecast_y_from_state(p_hat, states_low[-h-1], h)
-        elif best_model == "MIDAS":
-            f, a = midas_regular_forecast(y, x, h=h, m=m)
-            fcast = f[-1]
-        else:
-            f, a = adl_midas_forecast(y, x, h=h, m=m)
-            fcast = f[-1]
-        
-        rmspe_selected.append((y[-1] - fcast)**2)
+        for nf in [1, 2]:
+            ll, k, p_hat = kalman_ic(y, x, m=m)
+            ic = aic(ll, k) if criterion == "AIC" else bic(ll, k, T)
+            ic_vals[nf] = ic
+            params[nf] = p_hat
+
+        best_nf = min(ic_vals, key=ic_vals.get)
+        p_hat = params[best_nf]
+
+        kf = periodic_steady_state_kf(p_hat)
+        _, states_low = run_periodic_kf_filter(kf, y, x)
+
+        fcast = []
+        actual = []
+        for t in range(len(y) - h):
+            fcast.append(forecast_y_from_state(p_hat, states_low[t], h))
+            actual.append(y[t + h])
+
+        rmspe_kf.append(rmspe(np.array(fcast), np.array(actual)))
+
     return {
-        "RMSPE Selected": np.sqrt(np.mean(rmspe_selected)),
-        "Selection frequencies": {
-            k: v / N for k, v in selection_count.items()
-        }
+        "KF / MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_midas),
+        "KF / ADL-MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_adl),
     }
+
 
 #===========================
 # Panels
@@ -836,32 +1012,35 @@ def run_panel_simulation_3(
     criterion: str,
     N: int = 500,
     T: int = 40,
-    m: int = 3,
-    rho: float = 0.9,
-    d: float = 0.5
+    m: int = 3
 ):
     """
-    Runs one panel of Table 6.
-    Returns a Series with RMSPE and selection frequencies.
+    Runs one panel of Table 5 (Simulation 3).
+    Rows: d
+    Columns: rho
     """
-    out = monte_carlo_simulation_3(
-        N=N,
-        T=T,
-        m=m,
-        rho=rho,
-        d=d,
-        h=h,
-        criterion=criterion
-    )
+    res_midas = pd.DataFrame(index=D_GRID, columns=RHO_GRID, dtype=float)
+    res_adl   = pd.DataFrame(index=D_GRID, columns=RHO_GRID, dtype=float)
 
-    res = {
-        "RMSPE": out["RMSPE"],
-        "KF": out["Selection frequencies"]["KF"],
-        "MIDAS": out["Selection frequencies"]["MIDAS"],
-        "ADL-MIDAS": out["Selection frequencies"]["ADL-MIDAS"],
-    }
+    for d in D_GRID:
+        for rho in RHO_GRID:
+            out = monte_carlo_simulation_3(
+                N=N,
+                T=T,
+                m=m,
+                rho=rho,
+                d=d,
+                h=h,
+                criterion=criterion
+            )
 
-    return pd.Series(res)
+            res_midas.loc[d, rho] = out["KF / MIDAS"]
+            res_adl.loc[d, rho]   = out["KF / ADL-MIDAS"]
+
+            print(f"{criterion} | h={h} | d={d:>4} | rho={rho:>5} | done")
+
+    return res_midas, res_adl
+
 
 #===========================
 # Tables
@@ -904,35 +1083,49 @@ def generate_table_4B(
         "Panel D (h=4) - ADL-MIDAS": B_adl,
     }
 
-def generate_table_5(
-    N: int = 500,
-    rho: float = 0.9,
-    d: float = 0.5
-):
+def generate_table_5(N: int = 500):
     """
-    Generates Table 6 for Simulation 3.
+    Generates all panels of Table 5 (Simulation 3).
     """
-    table = {}
 
-    for criterion in ["AIC", "BIC"]:
-        for h in [1, 4]:
-            print(f"Running Simulation 3 | {criterion} | h={h}")
-            table[f"{criterion}, h={h}"] = run_panel_simulation_3(
-                h=h,
-                criterion=criterion,
-                N=N,
-                rho=rho,
-                d=d
-            )
+    print("=== Table 5, Panel A: AIC, h = 1 ===")
+    A_midas, A_adl = run_panel_simulation_3(
+        h=1, criterion="AIC", N=N
+    )
 
-    return pd.DataFrame(table).T
+    print("=== Table 5, Panel B: BIC, h = 1 ===")
+    B_midas, B_adl = run_panel_simulation_3(
+        h=1, criterion="BIC", N=N
+    )
 
-tables_4A = generate_table_4A(N=30)
+    print("=== Table 5, Panel C: AIC, h = 4 ===")
+    C_midas, C_adl = run_panel_simulation_3(
+        h=4, criterion="AIC", N=N
+    )
+
+    print("=== Table 5, Panel D: BIC, h = 4 ===")
+    D_midas, D_adl = run_panel_simulation_3(
+        h=4, criterion="BIC", N=N
+    )
+
+    return {
+        "Panel A (AIC, h=1) - Regular MIDAS": A_midas,
+        "Panel A (AIC, h=1) - ADL-MIDAS": A_adl,
+        "Panel B (BIC, h=1) - Regular MIDAS": B_midas,
+        "Panel B (BIC, h=1) - ADL-MIDAS": B_adl,
+        "Panel C (AIC, h=4) - Regular MIDAS": C_midas,
+        "Panel C (AIC, h=4) - ADL-MIDAS": C_adl,
+        "Panel D (BIC, h=4) - Regular MIDAS": D_midas,
+        "Panel D (BIC, h=4) - ADL-MIDAS": D_adl,
+    }
+
+
+
+tables_4A = generate_table_4A(N=200)
 tables_4A["Panel A (h=1) - Regular MIDAS"]
 tables_4A["Panel A (h=1) - Regular MIDAS"].to_excel(
     "Table_4A_PanelA_MIDAS.xlsx"
 )
-
 tables_4A["Panel A (h=1) - ADL-MIDAS"]
 tables_4A["Panel A (h=1) - ADL-MIDAS"].to_excel(
     "Table_4A_PanelA_ADL-MIDAS.xlsx"
@@ -946,7 +1139,7 @@ tables_4A["Panel B (h=4) - ADL-MIDAS"].to_excel(
     "Table_4A_PanelB_ADL-MIDAS.xlsx"
 )
 
-tables_4B = generate_table_4B(N=30) 
+tables_4B = generate_table_4B(N=200) 
 tables_4B["Panel C (h=1) - Regular MIDAS"]
 tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel(
     "Table_4B_PanelC_MIDAS.xlsx"
@@ -964,5 +1157,32 @@ tables_4B["Panel D (h=4) - ADL-MIDAS"].to_excel(
     "Table_4B_PanelD_ADL-MIDAS.xlsx"
 )
 
-table5 = generate_table_5(N=30, rho=0.9, d=0.5)  
-table5.to_excel("Table_5_Simulation3.xlsx")
+tables_5 = generate_table_5(N=200)
+
+tables_5["Panel A (AIC, h=1) - Regular MIDAS"].to_excel(
+    "Table_5_PanelA_MIDAS.xlsx"
+)
+tables_5["Panel A (AIC, h=1) - ADL-MIDAS"].to_excel(
+    "Table_5_PanelA_ADL-MIDAS.xlsx"
+)
+
+tables_5["Panel B (BIC, h=1) - Regular MIDAS"].to_excel(
+    "Table_5_PanelB_MIDAS.xlsx"
+)
+tables_5["Panel B (BIC, h=1) - ADL-MIDAS"].to_excel(
+    "Table_5_PanelB_ADL-MIDAS.xlsx"
+)
+
+tables_5["Panel C (AIC, h=4) - Regular MIDAS"].to_excel(
+    "Table_5_PanelC_MIDAS.xlsx"
+)
+tables_5["Panel C (AIC, h=4) - ADL-MIDAS"].to_excel(
+    "Table_5_PanelC_ADL-MIDAS.xlsx"
+)
+
+tables_5["Panel D (BIC, h=4) - Regular MIDAS"].to_excel(
+    "Table_5_PanelD_MIDAS.xlsx"
+)
+tables_5["Panel D (BIC, h=4) - ADL-MIDAS"].to_excel(
+    "Table_5_PanelD_ADL-MIDAS.xlsx"
+)

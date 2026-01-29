@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import json
 from typing import Iterable, Optional, Tuple, Dict, Any, List, Callable, Union
-from midas.dl_midas import DLMidas
-from midas.adl_midas import ADLMidas
+from midas_old.dl_midas import DLMidas
+from midas_old.adl_midas import ADLMidas
 
 MIDASModel = Union[DLMidas, ADLMidas]
 ModelFactory = Callable[[], MIDASModel]

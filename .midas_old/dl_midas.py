@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, Optional, Dict, Any
 from scipy.optimize import minimize
-from midas.midas import Midas, MIDASResult
+from midas_old.midas import Midas, MIDASResult
 
 class DLMidas(Midas):
     def __init__(self, Kx_LF, m, include_intercept = False, j_obs: Optional[int] = None):
@@ -157,98 +157,4 @@ class DLMidas(Midas):
             beta = float(self.beta_[0])
             return beta * z
 
-    # def predict(
-    #     self,
-    #     y: pd.Series,
-    #     x: pd.Series,
-    #     h: int = 1,
-    #     t: Optional[pd.Period] = None,
-    # ) -> float:
-    #     """
-    #     Prévoit y_{t+h}.
-    #     - y: série trimestrielle (PeriodIndex 'Q' recommandé)
-    #     - x: série HF (DatetimeIndex MS recommandé)
-    #     - h: horizon en trimestres
-    #     - t: trimestre origine. Si None => dernier trimestre de y_q (observable)
-    #     """
-    #     if self.theta_ is None or self.beta_ is None:
-    #         raise ValueError("Modèle non estimé: appelle fit() avant predict().")
-
-    #     if not isinstance(y.index, pd.PeriodIndex):
-    #         y = y.copy()
-    #         y.index = pd.PeriodIndex(y.index, freq="Q")
-    #     y = y.sort_index()
-    #     x = x.sort_index()
-
-    #     if t is None:
-    #         t = y.index[-1]
-
-    #     # On construit UNE ligne de Xlags au trimestre t (origine), avec Kx = self.Kx (en QUARTERS)
-    #     # Ici: self.K doit être interprété comme "Kx en QUARTERS" => lags mensuels = m*K
-    #     # (Si chez toi self.K = nb de lags mensuels, dis-le et on ajustera.)
-    #     _, Xlags, meta  = self.build_midas_xy_generic(
-    #         y=y.loc[:t],          # y dispo jusqu'à t
-    #         x=x,
-    #         h=h,
-    #         j_obs=self.j_obs,
-    #     )
-        
-    #     # La dernière ligne correspond à l'origine t (si elle est utilisable)
-    #     #x_row = Xlags[-1, :]  # shape (m*K,)
-    #     if t is None:
-    #         t = y.index[-1]
-    #     t = pd.Period(t, freq="Q")
-
-    #     mask = (meta == t)
-    #     if not mask.any():
-    #         raise ValueError(f"Impossible de prédire: le trimestre {t} n'est pas utilisable (lags/NaN manquants).")
-    #     loc = int(np.flatnonzero(mask)[0])
-    #     x_row = Xlags[loc, :]
-
-    #     theta1, theta2 = float(self.theta_[0]), float(self.theta_[1])
-    #     w = self.weights(theta1, theta2)        # shape (K,) chez toi actuellement
-
-    #     # IMPORTANT:
-    #     # Ton weights() produit K poids, mais x_row a m*K éléments (mensuels).
-    #     # Pour Regular MIDAS Table 7, le polynôme de poids est sur les *mois* => il faut m*K poids.
-    #     # Donc: soit tu redéfinis self.K = m*Kx (nb de lags mensuels),
-    #     # soit tu modifies weights() pour générer m*Kx poids.
-    #     #
-    #     # Ici je suppose que self.K == (m*Kx_LF) = nombre de lags mensuels.
-    #     if x_row.shape[0] != w.shape[0]:
-    #         raise ValueError(
-    #             f"Incohérence dimensions: x_row a {x_row.shape[0]} lags mensuels "
-    #             f"mais weights() produit {w.shape[0]} poids. "
-    #             f"Pour Table 7 (regular MIDAS), K doit compter des lags MENSUELS."
-    #         )
-
-    #     z = float(x_row @ w)
-
-    #     if self.include_intercept:
-    #         c, beta = float(self.beta_[0]), float(self.beta_[1])
-    #         return c + beta * z
-    #     else:
-    #         beta = float(self.beta_[0])
-    #         return beta * z
-        
-    # def _build_regressors(self, y: np.ndarray, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    #     """
-    #     Construct Y_target, X_lags
-    #     """
-
-    #     # Make sure to have 1d arrays
-    #     y = np.asarray(y, dtype=float).reshape(-1)
-    #     x = np.asarray(x, dtype=float).reshape(-1)
-
-    #     '''# Check that the regressor x has same period of observation as y
-    #     T = y.size
-    #     needed_x = T * self.m
-    #     if x.size < needed_x:
-    #         raise ValueError(f"Regressor X must have at least T*m={needed_x} observations (got {x.size}).")
-    #     '''
-
-    #     # Build lagged matrixes
-    #     y, _ = self.lagged_matrix(y)
-    #     _, x_lagged = self.lagged_matrix(x)
-
-    #     return y, x_lagged
+    

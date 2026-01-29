@@ -1,0 +1,111 @@
+# =========================
+# Python bytecode / cache
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# =========================
+# Virtual environments
+# =========================
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+
+# =========================
+# Packaging / build
+# =========================
+build/
+dist/
+*.egg-info/
+.eggs/
+wheelhouse/
+
+# =========================
+# IDEs / editors
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# =========================
+# Jupyter / notebooks
+# =========================
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+outputs/logs/
+
+# =========================
+# Outputs (figures, tables, caches)
+# =========================
+outputs/
+figures/
+tables/
+results/
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
+
+# =========================
+# Data (recommended: keep raw data out of git)
+# - If you want to version small processed datasets, remove data/processed/
+# =========================
+data/
+!data/README.md
+!data/.gitkeep
+
+# =========================
+# OS / temp files
+# =========================
+tmp/
+temp/
+*.tmp
+
+# =========================
+# Coverage / profiling
+# =========================
+.coverage
+htmlcov/
+*.prof
+*.pstats
+
+# =========================
+# LaTeX / papers (optional)
+# =========================
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.out
+*.toc
+*.synctex.gz
+
+# =========================
+# Secrets (just in case)
+# =========================
+.env
+.env.*
+__pycache__/
+.venv
+.env
+.vscode
+.DS_Store

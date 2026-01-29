@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from params import OneFactorParams
+from ORGA_TEST.src.ssm.params import OneFactorParams
 from ORGA_TEST.src.ssm.likelihood import fit_kalman_mle
 from ORGA_TEST.src.ssm.periodic_kf import (periodic_steady_state_kf, run_periodic_kf_filter)
 from ORGA_TEST.src.evaluation.data_management import quarter_end_months

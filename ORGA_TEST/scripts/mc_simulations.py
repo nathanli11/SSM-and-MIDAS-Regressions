@@ -6,7 +6,7 @@ from ORGA_TEST.src.ssm.periodic_kf import (periodic_steady_state_kf, run_periodi
 from ORGA_TEST.src.midas.forecast import (regular_midas_forecast, multiplicative_midas_forecast)
 from ORGA_TEST.src.dgp.simulate import (simulate_one_factor_dgp, simulate_two_factor_dgp)
 from ORGA_TEST.src.evaluation.model_selection import (
-    aic, bic, rmspe, kalman_ic_1f, kalman_ic_2f, RICCATI_MAX_ITERS, RICCATI_TOL, RHO_GRID, D_GRID
+    aic, bic, rmspe, kalman_ic_1f, kalman_ic_2f, RHO_GRID, D_GRID
     )
 
 #===========================
@@ -295,26 +295,31 @@ def generate_table_5(N: int = 500):
     }
 
 
-tables_4A = generate_table_4A(N=500)
-tables_4A["Panel A (h=1) - Regular MIDAS"].to_excel("Table_4A_PanelA_MIDAS.xlsx")
-tables_4A["Panel A (h=1) - Multiplicative MIDAS"].to_excel("Table_4A_PanelA_Multiplicative_MIDAS.xlsx")
-tables_4A["Panel B (h=4) - Regular MIDAS"].to_excel("Table_4A_PanelB_MIDAS.xlsx")
-tables_4A["Panel B (h=4) - Multiplicative MIDAS"].to_excel("Table_4A_PanelB_Multiplicative_MIDAS.xlsx")
+def main():
+    repo = "ORGA_TEST/scripts/results/table_4_5/"
+    tables_4A = generate_table_4A(N=500)
+    tables_4A["Panel A (h=1) - Regular MIDAS"].to_excel(repo + "Table_4A_PanelA_MIDAS.xlsx")
+    tables_4A["Panel A (h=1) - Multiplicative MIDAS"].to_excel(repo + "Table_4A_PanelA_Multiplicative_MIDAS.xlsx")
+    tables_4A["Panel B (h=4) - Regular MIDAS"].to_excel(repo + "Table_4A_PanelB_MIDAS.xlsx")
+    tables_4A["Panel B (h=4) - Multiplicative MIDAS"].to_excel(repo + "Table_4A_PanelB_Multiplicative_MIDAS.xlsx")
 
 
-tables_4B = generate_table_4B(N=500)
-tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel("Table_4_PanelC_MIDAS.xlsx")
-tables_4B["Panel C (h=1) - Multiplicative MIDAS"].to_excel("Table_4_PanelC_ADL_MIDAS.xlsx")
-tables_4B["Panel D (h=4) - Regular MIDAS"].to_excel("Table_4_PanelD_MIDAS.xlsx")
-tables_4B["Panel D (h=4) - Multiplicative MIDAS"].to_excel("Table_4_PanelD_ADL_MIDAS.xlsx")
+    tables_4B = generate_table_4B(N=500)
+    tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel(repo + "Table_4B_PanelC_MIDAS.xlsx")
+    tables_4B["Panel C (h=1) - Multiplicative MIDAS"].to_excel(repo + "Table_4B_PanelC_Multiplicative_MIDAS.xlsx")
+    tables_4B["Panel D (h=4) - Regular MIDAS"].to_excel(repo + "Table_4B_PanelD_MIDAS.xlsx")
+    tables_4B["Panel D (h=4) - Multiplicative MIDAS"].to_excel(repo + "Table_4B_PanelD_Multiplicative_MIDAS.xlsx")
 
 
-tables_5 = generate_table_5(N=500)
-tables_5["Panel A (AIC, h=1) - Regular MIDAS"].to_excel("Table_5_PanelA_MIDAS.xlsx")
-tables_5["Panel A (AIC, h=1) - Multiplicative MIDAS"].to_excel("Table_5_PanelA_Multiplicative_MIDAS.xlsx")
-tables_5["Panel B (BIC, h=1) - Regular MIDAS"].to_excel("Table_5_PanelB_MIDAS.xlsx")
-tables_5["Panel B (BIC, h=1) - Multiplicative MIDAS"].to_excel("Table_5_PanelB_Multiplicative_MIDAS.xlsx")
-tables_5["Panel C (AIC, h=4) - Regular MIDAS"].to_excel("Table_5_PanelC_MIDAS.xlsx")
-tables_5["Panel C (AIC, h=4) - Multiplicative MIDAS"].to_excel("Table_5_PanelC_Multiplicative_MIDAS.xlsx")
-tables_5["Panel D (BIC, h=4) - Regular MIDAS"].to_excel("Table_5_PanelD_MIDAS.xlsx")
-tables_5["Panel D (BIC, h=4) - Multiplicative MIDAS"].to_excel("Table_5_PanelD_Multiplicative_MIDAS.xlsx")
+    tables_5 = generate_table_5(N=500)
+    tables_5["Panel A (AIC, h=1) - Regular MIDAS"].to_excel(repo + "Table_5_PanelA_MIDAS.xlsx")
+    tables_5["Panel A (AIC, h=1) - Multiplicative MIDAS"].to_excel(repo + "Table_5_PanelA_Multiplicative_MIDAS.xlsx")
+    tables_5["Panel B (BIC, h=1) - Regular MIDAS"].to_excel(repo + "Table_5_PanelB_MIDAS.xlsx")
+    tables_5["Panel B (BIC, h=1) - Multiplicative MIDAS"].to_excel(repo + "Table_5_PanelB_Multiplicative_MIDAS.xlsx")
+    tables_5["Panel C (AIC, h=4) - Regular MIDAS"].to_excel(repo + "Table_5_PanelC_MIDAS.xlsx")
+    tables_5["Panel C (AIC, h=4) - Multiplicative MIDAS"].to_excel(repo + "Table_5_PanelC_Multiplicative_MIDAS.xlsx")
+    tables_5["Panel D (BIC, h=4) - Regular MIDAS"].to_excel(repo + "Table_5_PanelD_MIDAS.xlsx")
+    tables_5["Panel D (BIC, h=4) - Multiplicative MIDAS"].to_excel(repo + "Table_5_PanelD_Multiplicative_MIDAS.xlsx")
+
+if __name__ == "__main__":
+    main()

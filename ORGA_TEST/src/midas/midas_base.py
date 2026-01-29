@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
-from typing import Dict, Any, Tuple
+from typing import Dict, Any
 
 @dataclass
 class MIDASFit:

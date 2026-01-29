@@ -7,8 +7,8 @@ from ORGA_TEST.src.ssm.kalman_two_series import (
 from ORGA_TEST.src.evaluation.recursive_table7 import recursive_forecast_exercise
 
 # Data importation
-stat_xl = pd.read_excel('stationnary_data.xlsx', index_col=0, parse_dates=True)
-y_parse = pd.read_excel('y_sparse.xlsx', index_col=0, parse_dates=True)
+stat_xl = pd.read_excel(r'ORGA_TEST/data/stationnary_data.xlsx', index_col=0, parse_dates=True)
+y_parse = pd.read_excel(r'ORGA_TEST/data/y_sparse.xlsx', index_col=0, parse_dates=True)
 
 series_names = stat_xl.columns.tolist()
 gdp_name = y_parse.columns[0]
@@ -30,15 +30,15 @@ for i in range(len(stat_xl.columns)):
 
   x = series_names[i]
 
-  kf = kalman_filter_minimal(
-      df_x=final_data,
-      G=G, Q=Q, a=a, Z=Z, R=R,
-      names=[gdp_name,x],
-      scaler=None  
-  )
+#   kf = kalman_filter_minimal(
+#       df_x=final_data,
+#       G=G, Q=Q, a=a, Z=Z, R=R,
+#       names=[gdp_name,x],
+#       scaler=None  
+#   )
 
-  f_filt = kf["a_filt"][:, 0]
-  f_pred = kf["a_pred"][:, 0]
+#   f_filt = kf["a_filt"][:, 0]
+#   f_pred = kf["a_pred"][:, 0]
 
   first_date = [0,1,2,4,5,8]
   second_date = [3] #EXPTN

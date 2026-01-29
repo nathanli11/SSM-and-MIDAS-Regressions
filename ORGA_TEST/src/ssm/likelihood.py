@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import minimize
-from params import OneFactorParams, TwoFactorParams
-from measurement import build_measurement_mats
+from ORGA_TEST.src.ssm.params import OneFactorParams, TwoFactorParams
+from ORGA_TEST.src.ssm.measurement import build_measurement_mats
 
 def kalman_loglike_full(p: OneFactorParams, y: np.ndarray, x: np.ndarray) -> float:
     """

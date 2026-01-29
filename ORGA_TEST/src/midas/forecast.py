@@ -1,5 +1,5 @@
 import numpy as np
-from midas_base import exp_almon_weights, hf_lag_at_low_t
+from ORGA_TEST.src.midas.midas_base import exp_almon_weights, hf_lag_at_low_t
 from numpy.linalg import lstsq
 from scipy.optimize import minimize
 

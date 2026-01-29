@@ -1,8 +1,8 @@
 import numpy as np
 from dataclasses import dataclass
 from typing import List, Tuple
-from params import OneFactorParams
-from measurement import build_measurement_mats
+from ORGA_TEST.src.ssm.params import OneFactorParams
+from ORGA_TEST.src.ssm.measurement import build_measurement_mats
 
 
 # -----------------------------

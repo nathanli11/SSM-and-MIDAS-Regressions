@@ -1,7 +1,6 @@
 import numpy as np
 from ORGA_TEST.src.ssm.likelihood import kalman_loglike_full, kalman_loglike_2f, fit_kalman_mle
 from ORGA_TEST.src.ssm.params import TwoFactorParams
-from ORGA_TEST.src.midas.forecast import regular_midas_forecast, multiplicative_midas_forecast
 
 # ----------------------------------------------------
 # GRID as in the paper

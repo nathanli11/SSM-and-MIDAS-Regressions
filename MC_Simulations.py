@@ -989,7 +989,6 @@ def run_panel_simulation_2(
 
     return res_midas, res_adl
 
-
 def run_panel_simulation_3(
     h: int,
     criterion: str,
@@ -1056,7 +1055,6 @@ def generate_table_4B(N=500):
         "Panel D (h=4) - Multiplicative MIDAS": D_adl,
     }
 
-
 def generate_table_5(N: int = 500):
     """
     Generates all panels of Table 5 (Simulation 3).
@@ -1093,16 +1091,14 @@ def generate_table_5(N: int = 500):
         "Panel D (BIC, h=4) - Multiplicative MIDAS": D_adl,
     }
 
-tables_4B = generate_table_4B(N=5)
+tables_4B_100 = generate_table_4B(N=100)
+tables_4B_100["Panel C (h=1) - Regular MIDAS"].to_excel("Table_4_PanelC_MIDAS_100.xlsx")
+tables_4B_100["Panel C (h=1) - Multiplicative MIDAS"].to_excel("Table_4_PanelC_ADL_MIDAS_100.xlsx")
 
-tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel("Table_4_PanelC_MIDAS.xlsx")
-tables_4B["Panel C (h=1) - Multiplicative MIDAS"].to_excel("Table_4_PanelC_ADL_MIDAS.xlsx")
+tables_4B_100["Panel D (h=4) - Regular MIDAS"].to_excel("Table_4_PanelD_MIDAS_100.xlsx")
+tables_4B_100["Panel D (h=4) - Multiplicative MIDAS"].to_excel("Table_4_PanelD_ADL_MIDAS_100.xlsx")
 
-tables_4B["Panel D (h=4) - Regular MIDAS"].to_excel("Table_4_PanelD_MIDAS.xlsx")
-tables_4B["Panel D (h=4) - Multiplicative MIDAS"].to_excel("Table_4_PanelD_ADL_MIDAS.xlsx")
-
-
-tables_4A = generate_table_4A(N=5)
+tables_4A = generate_table_4A(N=500)
 tables_4A["Panel A (h=1) - Regular MIDAS"].to_excel(
     "Table_4A_PanelA_MIDAS.xlsx"
 )
@@ -1118,9 +1114,14 @@ tables_4A["Panel B (h=4) - Multiplicative MIDAS"].to_excel(
     "Table_4A_PanelB_Multiplicative_MIDAS.xlsx"
 )
 
+tables_4B = generate_table_4B(N=500)
+tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel("Table_4_PanelC_MIDAS_500.xlsx")
+tables_4B["Panel C (h=1) - Multiplicative MIDAS"].to_excel("Table_4_PanelC_ADL_MIDAS_500.xlsx")
+tables_4B["Panel D (h=4) - Regular MIDAS"].to_excel("Table_4_PanelD_MIDAS_500.xlsx")
+tables_4B["Panel D (h=4) - Multiplicative MIDAS"].to_excel("Table_4_PanelD_ADL_MIDAS_500.xlsx")
 
 
-tables_5 = generate_table_5(N=5)
+tables_5 = generate_table_5(N=500)
 
 tables_5["Panel A (AIC, h=1) - Regular MIDAS"].to_excel(
     "Table_5_PanelA_MIDAS.xlsx"

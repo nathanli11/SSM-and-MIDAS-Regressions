@@ -150,52 +150,63 @@ def kalman_loglike_full(p: OneFactorParams, y: np.ndarray, x: np.ndarray) -> flo
     return float(ll)
 
 def kalman_loglike_2f(p: TwoFactorParams, y, x):
-    '''Calcule la log vraisemblance d un SSM a deux facteurs latents
-    avec Kalman
-    '''
+    '''Calcule la log vraimensemblance pour 2 facteurs'''
     m = p.m
     T_low = len(y)
     T_high = T_low * m
 
-    # Matrice de transition de l etat
     G = np.diag([p.rho1, p.rho2, p.d, p.d])
-    # Variance des innovations
     Q = np.diag([p.sig2_f1, p.sig2_f2, p.sig2_uy, p.sig2_ux])
 
-    # Init
     a = np.zeros(4)
-    P = np.eye(4) * 10
+    P = np.eye(4) * 10.0
     ll = 0.0
     low_idx = 0
+    two_pi = np.log(2.0*np.pi)
 
-    # Boucle sur les periodes HF
     for t in range(T_high):
         j = (t % m) + 1
+
+        # predict
         a = G @ a
         P = G @ P @ G.T + Q
 
+        # measurement
         if j < m:
-            # x = f1 + u_x
-            Z = np.array([[1, 0, 0, 1]])   
+            Z = np.array([[1, 0, 0, 1]])
             y_obs = np.array([x[t, 0]])
         else:
-            # y = f1 + f2 + u_y
-            # x
-            Z = np.array([
-                [1, 1, 1, 0],             
-                [1, 0, 0, 1]              
-            ])
+            Z = np.array([[1, 1, 1, 0],
+                          [1, 0, 0, 1]])
             y_obs = np.array([y[low_idx], x[t, 0]])
             low_idx += 1
 
         v = y_obs - Z @ a
-        S = Z @ P @ Z.T
-        ll += -0.5 * (np.log(np.linalg.det(S)) + v.T @ np.linalg.solve(S, v))
-        K = P @ Z.T @ np.linalg.inv(S)
+        S = Z @ P @ Z.T  # H=0 ici
+
+        try:
+            L = np.linalg.cholesky(S)
+        except np.linalg.LinAlgError:
+            return -np.inf
+
+        tmp = np.linalg.solve(L, v)
+        Sinv_v = np.linalg.solve(L.T, tmp)
+        quad = float(v.T @ Sinv_v)
+        logdet = 2.0*np.sum(np.log(np.diag(L)))
+        k = len(y_obs)
+
+        ll += -0.5*(logdet + quad + k*two_pi)
+
+        # update
+        PZt = P @ Z.T
+        W = np.linalg.solve(L, PZt.T)
+        U = np.linalg.solve(L.T, W)
+        K = U.T
         a = a + K @ v
         P = P - K @ Z @ P
 
     return float(ll)
+
 
 def fit_kalman_mle(y: np.ndarray, x: np.ndarray, m=3) -> OneFactorParams:
     '''Estime les parametres d un model a un facteur 
@@ -254,6 +265,159 @@ def fit_kalman_mle(y: np.ndarray, x: np.ndarray, m=3) -> OneFactorParams:
         sig2_ux=sig2_ux
     )
 
+def fit_kalman_mle_2f(y: np.ndarray, x: np.ndarray, m=3) -> TwoFactorParams:
+    def neg_ll(theta):
+        eps = 1e-8
+        rho1 = np.tanh(theta[0])
+        rho2 = np.tanh(theta[1])
+        d    = np.tanh(theta[2])
+
+        sig2_f1 = np.exp(theta[3]) + eps
+        sig2_f2 = np.exp(theta[4]) + eps
+        sig2_uy = np.exp(theta[5]) + eps
+        sig2_ux = np.exp(theta[6]) + eps
+
+        p = TwoFactorParams(
+            m=m, rho1=rho1, rho2=rho2, d=d,
+            sig2_f1=sig2_f1, sig2_f2=sig2_f2,
+            sig2_uy=sig2_uy, sig2_ux=sig2_ux
+        )
+        return -kalman_loglike_2f(p, y, x)
+
+    theta0 = np.array([
+        np.arctanh(0.5), np.arctanh(0.2), np.arctanh(0.1),
+        np.log(1.0), np.log(1.0), np.log(1.0), np.log(1.0)
+    ])
+
+    res = minimize(neg_ll, theta0, method="L-BFGS-B")
+
+    return TwoFactorParams(
+        m=m,
+        rho1=np.tanh(res.x[0]),
+        rho2=np.tanh(res.x[1]),
+        d=np.tanh(res.x[2]),
+        sig2_f1=np.exp(res.x[3]),
+        sig2_f2=np.exp(res.x[4]),
+        sig2_uy=np.exp(res.x[5]),
+        sig2_ux=np.exp(res.x[6]),
+    )
+
+
+def periodic_steady_state_kf_2f(p: TwoFactorParams):
+    """
+    Calcule les gains de Kalman périodiques (steady-state)
+    pour le modèle à deux facteurs
+    """
+    m = p.m
+    dim = p.dim_state
+
+    # Matrice de transition
+    G = np.diag([p.rho1, p.rho2, p.d, p.d])
+
+    # Variance des innovations
+    Q = np.diag([p.sig2_f1, p.sig2_f2, p.sig2_uy, p.sig2_ux])
+
+    # Matrices de mesure selon la sous-période
+    Z_list = []
+    H_list = []
+
+    for j in range(1, m + 1):
+        if j < m:
+            # x = f1 + u_x
+            Z = np.array([[1, 0, 0, 1]])
+            H = np.zeros((1, 1))
+        else:
+            # y = f1 + f2 + u_y
+            # x = f1 + u_x
+            Z = np.array([
+                [1, 1, 1, 0],
+                [1, 0, 0, 1]
+            ])
+            H = np.zeros((2, 2))
+
+        Z_list.append(Z)
+        H_list.append(H)
+
+    # Initialisation Riccati
+    P = np.eye(dim) * 10.0
+
+    for _ in range(RICCATI_MAX_ITERS):
+        P_old = P.copy()
+        for j in range(m):
+            Z = Z_list[j]
+            H = H_list[j]
+
+            S = Z @ P @ Z.T + H
+            K = P @ Z.T @ np.linalg.inv(S)
+            P = P - K @ Z @ P
+            P = G @ P @ G.T + Q
+
+        if np.max(np.abs(P - P_old)) < RICCATI_TOL:
+            break
+
+    # Gains de Kalman steady-state
+    K_list = []
+    for j in range(m):
+        Z = Z_list[j]
+        H = H_list[j]
+        S = Z @ P @ Z.T + H
+        K = P @ Z.T @ np.linalg.inv(S)
+        K_list.append(K)
+
+    return {
+        "G": G,
+        "Z_list": Z_list,
+        "K_list": K_list,
+    }
+
+
+def run_periodic_kf_filter_2f(kf, y, x):
+    """
+    Applique le filtre de Kalman périodique à deux facteurs
+    et retourne les états filtrés aux dates basse fréquence
+    """
+    G = kf["G"]
+    Z_list = kf["Z_list"]
+    K_list = kf["K_list"]
+
+    m = len(Z_list)
+    T_low = len(y)
+    T_high = T_low * m
+
+    a = np.zeros(G.shape[0])
+    states_low = []
+
+    low_idx = 0
+
+    for t in range(T_high):
+        j = t % m
+
+        # Prediction
+        a = G @ a
+
+        # Observation
+        if j < m - 1:
+            y_obs = np.array([x[t, 0]])
+        else:
+            y_obs = np.array([y[low_idx], x[t, 0]])
+            low_idx += 1
+
+        Z = Z_list[j]
+        K = K_list[j]
+
+        # Innovation
+        v = y_obs - Z @ a
+
+        # Mise à jour
+        a = a + K @ v
+
+        # Sauvegarde à la fin de chaque période LF
+        if j == m - 1:
+            states_low.append(a.copy())
+
+    return np.array(states_low)
+
+
 def kalman_filter_forecast(y, x, h=1, m=3):
     '''
     Calcule des prev à horizon h  via le filtre de Kalman
@@ -285,12 +449,16 @@ def kalman_ic_1f(y, x, m=3):
     k = 5   # rho, d, sig2_f, sig2_uy, sig2_ux
     return ll, k, p
 
+
 def kalman_ic_2f(y, x, m=3):
-    # critères pour aic ou bic 2 facteurs
-    p = TwoFactorParams(m=m)
+    p = fit_kalman_mle_2f(y, x, m=m)
     ll = kalman_loglike_2f(p, y, x)
-    k = 6   # rho1, rho2, sig2_f1, sig2_f2, sig2_uy, sig2_ux
+    k = 7  # rho1,rho2,d + 4 variances
     return ll, k, p
+
+def forecast_y_from_state_2f(p: TwoFactorParams, state, h):
+    f1, f2, uy, _ = state
+    return (p.rho1**(p.m*h))*f1 + (p.rho2**(p.m*h))*f2 + (p.d**(p.m*h))*uy
 
 
 #============================
@@ -542,8 +710,11 @@ def aic(loglike: float, k: int) -> float:
     """AIC critère"""
     return -2 * loglike + 2 * k
 
-def bic(loglike: float, k: int, T: int) -> float:
-    return -2 * loglike + k * np.log(T)
+
+def bic(loglike: float, k: int, T_low: int, m: int, n_x: int = 1) -> float:
+    n_obs = T_low + (T_low * m) * n_x
+    return -2 * loglike + k * np.log(n_obs)
+
 
 
 def kalman_ic(y, x, m=3):
@@ -634,6 +805,7 @@ def monte_carlo_simulation_2(
         "KF / ADL-MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_adl),
     }
 
+
 def monte_carlo_simulation_3(
     N=500,
     T=40,
@@ -647,10 +819,10 @@ def monte_carlo_simulation_3(
     rmspe_midas = []
     rmspe_adl = []
 
+    n2 = 0
     for i in range(N):
-        y, x, _ = simulate_one_factor_dgp(
-            T=T, m=m, rho=rho, d=d, seed=i
-        )
+        # DGP : 1 facteur
+        y, x, _ = simulate_one_factor_dgp(T=T, m=m, rho=rho, d=d, seed=i)
 
         # MIDAS
         f_m, a_m = regular_midas_forecast(y, x, h=h, m=m)
@@ -668,23 +840,39 @@ def monte_carlo_simulation_3(
             ic1 = aic(ll1, k1)
             ic2 = aic(ll2, k2)
         else:
-            ic1 = bic(ll1, k1, T)
-            ic2 = bic(ll2, k2, T)
+            ic1 = bic(ll1, k1, T_low=len(y), m=m, n_x=x.shape[1])
+            ic2 = bic(ll2, k2, T_low=len(y), m=m, n_x=x.shape[1])
 
-        # Le papier produit toujours le modèle 1 facteur
-        # on suit cette convention ici
-        p_hat = p1 
-        kf = periodic_steady_state_kf(p_hat)
-        _, states_low = run_periodic_kf_filter(kf, y, x)
 
+        if ic1 <= ic2:
+            model_type = "1f"
+            p_hat = p1
+            kf = periodic_steady_state_kf(p_hat)
+            _, states_low = run_periodic_kf_filter(kf, y, x)
+
+        else:
+            model_type = "2f"
+            p_hat = p2
+            kf = periodic_steady_state_kf_2f(p_hat)
+            states_low = run_periodic_kf_filter_2f(kf, y, x)
+            n2 += 1
+
+        # Prévisions
         fcast = []
         actual = []
+
         for t in range(len(y) - h):
-            fcast.append(forecast_y_from_state(p_hat, states_low[t], h))
+
+            if model_type =="1f":
+                fcast.append(forecast_y_from_state(p_hat, states_low[t], h))
+            else:
+                # Prevision 2 facteurs
+                fcast.append(forecast_y_from_state_2f(p_hat, states_low[t], h))
+            
             actual.append(y[t + h])
 
         rmspe_kf.append(rmspe(np.array(fcast), np.array(actual)))
-
+    print("share 2-factor selected =", n2/N)
     return {
         "KF / MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_midas),
         "KF / ADL-MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_adl),

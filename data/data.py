@@ -1,21 +1,18 @@
 import pandas as pd
 import numpy as np
 import json
-from typing import Iterable, Optional, Tuple, Dict, Any, List, Callable, Union
-from midas_old.dl_midas import DLMidas
-from midas_old.adl_midas import ADLMidas
-
-MIDASModel = Union[DLMidas, ADLMidas]
-ModelFactory = Callable[[], MIDASModel]
+from typing import Iterable, Optional, Tuple, Dict, Any, List
+from dl_midas import DLMidas
+from adl_midas import ADLMidas
 
 # ---------- Stationnarisation et normalisation ----------
-def _safe_log(s: pd.Series) -> np.ndarray:
+def _safe_log(s: pd.Series) -> pd.Series:
     """ Passe une série en log """
     s = s.astype(float)
     s = s.where(s > 0, np.nan)
     return np.log(s)
 
-def stationarize(df: pd.DataFrame, rules: Dict[str, str]) -> pd.DataFrame:
+def stationarize(df: pd.DataFrame, rules: Dict[str, str]) -> pd.Series:
     """ Applique une méthode de stationaisation (basée sur le nom de la série et un set de règles) à chaque colonne d'un DataFrame """
     if df.shape[1] < 1:
         raise ValueError("DataFrame must have at least one column")
@@ -202,122 +199,29 @@ def to_numpy(x, as_2d: bool = False) -> np.ndarray:
 
 # ------------------------------- Recursive estimation -------------------------------
 
-# def _find_effective_dates(y: pd.Series, x: pd.Series, Kx_HF: int, dates_info: List[str], h: int) -> pd.Period:
-#     """ Calibre les dates selon les données disponibles, les retards, et l'horizon de forecast 
-#         dates_info = [start_estimation_month, end_estimation_quarter, end_eval_month]
-#     """
-#     temp_start_estimation: pd.Period = pd.Period(dates_info[0], freq='M')
-#     temp_end_estimation: pd.Period = pd.Period(dates_info[1], freq='Q')
-#     end_eval: pd.Period = pd.Period(dates_info[2], freq='M').asfreq("Q", how="end")
+def _find_effective_dates(y: pd.Series, x: pd.Series, Kx_months: int, dates_info: List[str], h: int) -> pd.Period:
+    """ Calibre les dates selon les données disponibles, les retards, et l'horizon de forecast """
 
-#     # Find estimation period
-#     start_estimation: pd.Period = max(temp_start_estimation.asfreq("Q", how="end"), (x.first_valid_index() + Kx_HF + 1).asfreq("Q", how="end") + 1)
-#     end_estimation: pd.Period = max(start_estimation + 40, temp_end_estimation)
+    temp_start_estimation: pd.Period = pd.Period(dates_info[0], freq='M')
+    temp_end_estimation: pd.Period = pd.Period(dates_info[1], freq='Q')
+    end_eval: pd.Period = pd.Period(dates_info[2], freq='M').asfreq("Q", how="end")
 
-#     # Find evaluation period
-#     start_eval: pd.Period = end_estimation + h
+    # Find estimation period
+    start_estimation: pd.Period = max(temp_start_estimation.asfreq("Q", how="end"), (x.first_valid_index() + Kx_months + 1).asfreq("Q", how="end") + 1)
+    end_estimation: pd.Period = max(start_estimation + 40, temp_end_estimation)
 
-#     # Vérification
-#     if start_estimation > end_estimation or end_estimation > start_eval or start_eval > end_eval:
-#         raise ValueError(
-#             f"{x.name}: Données insuffisantes pour estimer un MIDAS avec k={Kx_HF} et h={h}"
-#         )
-#     else:
-#         return start_estimation, end_estimation, start_eval, end_eval
+    # Find evaluation period
+    start_eval: pd.Period = end_estimation + h
 
-def first_usable_origin_quarter(
-    y: pd.Series,
-    x: pd.Series,
-    m: int,
-    Kx_LF: int,
-    j_obs: int,
-) -> pd.Period:
-    """
-    Premier trimestre t tel que:
-    - on trouve une observation HF dans t au rang j_cut=min(j_obs, n_t)
-    - et on a assez d'historique HF pour Kx_HF lags (cut_pos >= Kx_HF-1)
-    """
-    Kx_HF = m * Kx_LF
-
-    # y en PeriodIndex trimestriel
-    if not isinstance(y.index, pd.PeriodIndex):
-        y = y.copy()
-        y.index = pd.PeriodIndex(y.index, freq="Q")
-    y = y.sort_index()
-
-    # x en DatetimeIndex
-    if isinstance(x.index, pd.PeriodIndex):
-        x = x.copy()
-        x.index = x.index.to_timestamp(how="start")
-    elif not isinstance(x.index, pd.DatetimeIndex):
-        x = x.copy()
-        x.index = pd.to_datetime(x.index)
-
-    df = pd.DataFrame({"x": x})
-    idx = pd.DatetimeIndex(df.index)
-    df["q"] = idx.to_period("Q")
-    df["j"] = df.groupby("q").cumcount() + 1
-
-    for t in y.index:
-        g = df[df["q"] == t]
-        if g.empty:
-            continue
-        n_t = int(g["j"].max())
-        j_cut = min(int(j_obs), n_t)
-
-        mask_cut = (df["q"] == t) & (df["j"] == j_cut)
-        pos = np.flatnonzero(mask_cut.values)
-        if pos.size == 0:
-            continue
-        cut_pos = int(pos[0])
-
-        if cut_pos >= (Kx_HF - 1):
-            return t
-
-    raise ValueError("Aucun trimestre d'origine faisable (HF insuffisant / trimestres vides).")
-
-def _find_effective_dates(
-    y: pd.Series,
-    x: pd.Series,
-    model: MIDASModel,
-    dates_info: List[str],
-    h: int,
-) -> Tuple[pd.Period, pd.Period, pd.Period, pd.Period]:
-
-    # paramètres MIDAS
-    m = model.m
-    Kx_LF = model.Kx_LF
-    j_obs = model.j_obs if getattr(model, "j_obs", None) is not None else (m - 1)
-
-    # bornes venant du JSON
-    # start est en "M" dans ton fichier; on le convertit vers le quarter de fin de mois
-    temp_start_est = pd.Period(dates_info[0], freq="M").asfreq("Q", how="end")
-    temp_end_est   = pd.Period(dates_info[1], freq="Q")
-    end_eval       = pd.Period(dates_info[2], freq="M").asfreq("Q", how="end")
-
-    # 1) faisabilité technique (dépend de x + m + Kx_LF + j_obs)
-    first_feasible = first_usable_origin_quarter(y, x, m=m, Kx_LF=Kx_LF, j_obs=j_obs)
-
-    # 2) start estimation = max(borne JSON, borne technique)
-    start_estimation = max(temp_start_est, first_feasible)
-
-    # 3) end estimation: au moins 40 trimestres, mais >= temp_end_est
-    end_estimation = max(start_estimation + 40, temp_end_est)
-
-    # 4) fenêtre d’évaluation
-    start_eval = end_estimation + h
-
+    # Vérification
     if start_estimation > end_estimation or end_estimation > start_eval or start_eval > end_eval:
-        Kx_HF = m * Kx_LF
         raise ValueError(
-            f"{getattr(x, 'name', 'x')}: Données insuffisantes pour DL-MIDAS "
-            f"(m={m}, Kx_LF={Kx_LF}, Kx_HF={Kx_HF}, j_obs={j_obs}, h={h})."
+            f"{x.name}: Données insuffisantes pour estimer un MIDAS avec k={Kx_months} et h={h}"
         )
+    else:
+        return start_estimation, end_estimation, start_eval, end_eval
 
-    return start_estimation, end_estimation, start_eval, end_eval
-
-
-def recursive_rmse_midas(y: pd.Series, x: pd.Series, model_factory: ModelFactory, h_list: Iterable[int], reg_info: Dict[str, Any]):
+def recursive_rmse_midas(y: pd.Series, x: pd.Series, model_factory, h_list: Iterable[int], reg_info: Dict[str, Any]):
 
     # Conversion de l'index du GDP en pd.Period
     if not isinstance(y.index, pd.PeriodIndex):
@@ -333,7 +237,7 @@ def recursive_rmse_midas(y: pd.Series, x: pd.Series, model_factory: ModelFactory
         start_estimation, end_estimation, start_eval, end_eval = _find_effective_dates(
             y=y,
             x=x,
-            model=tmp_model,
+            Kx_months=tmp_model.Kx_quarters*tmp_model.m,
             dates_info=reg_info[x.name],
             h=h)
         print(f'Horizon: {h}, {start_estimation} : {end_estimation}, {start_eval} : {end_eval}')
@@ -342,46 +246,29 @@ def recursive_rmse_midas(y: pd.Series, x: pd.Series, model_factory: ModelFactory
         # t = trimestre "à prévoir" en nowcast (h=1) ou à horizon h
         # Ici on prend comme origine d’estimation: y dispo jusqu’à (t-1)
         for t in pd.period_range(start_eval, end_eval, freq="Q"):
-            est_end = t - 1  # y observé jusqu’à t-1
+            est_end = t - h  # y observé jusqu’à t-h
             if est_end < end_estimation:
                 continue
-            if (t + (h-1)) not in y.index:
+            if t not in y.index:
                 continue
 
             model = model_factory()
 
             y_est = y.loc[start_estimation:est_end]
-            # Preparation de Y et X
-            # Preparation de Y et X
-            if hasattr(model, "p"):  # ADL-MIDAS
-                Y, Xlags, Ylags, _ = model.build_adl_midas_xy(
-                    y=y_est,
-                    x=x,
-                    h=h,
-                    j_obs=getattr(model, "j_obs", None)
-                )
-                model.fit(Y, Xlags, Ylags)
-            else:  # DL-MIDAS
-                Y, Xlags, _ = model.build_midas_xy_generic(
-                    y=y_est,
-                    x=x,
-                    h=h,
-                    j_obs=getattr(model, "j_obs", None)
-                )
-                model.fit(Y, Xlags)
-
+            # Fit
+            model.fit(y_est, x, h=h)
 
             # Prévision de y_{t+(h-1)} en utilisant info mensuelle jusqu’au 2e mois de t
             # (pour h=1 => y_t)
-            target = t + (h-1)
-            y_true = float(y.loc[target])
+            y_true = float(y.loc[t])
 
             # construit une seule ligne X au trimestre t (origine = t)
             y_for_pred = y.loc[:est_end]  # y dispo
-            yhat = model.predict(y_for_pred, x, h=h, t=t)
+            yhat = model.predict(y_for_pred, x, h=h, t=est_end)
 
             errors.append((yhat - y_true) ** 2)
         rmses[h] = float(np.sqrt(np.mean(errors)))
+        print('rmse: ', rmses[h])
 
     return rmses
 
@@ -401,9 +288,8 @@ if __name__ == "__main__":
     h_list = range(1, 9)
     with open("regressors_info.json", "r", encoding="utf-8") as f:
         reg_info = json.load(f)
-    #model_factory = lambda: DLMidas(Kx_LF=5, m=3, include_intercept=False)
-    model_factory = lambda: ADLMidas(Kx_LF=5, m=3, p=1, include_intercept=True, j_obs=None)
-
+    model_factory_dl = lambda: DLMidas(m=3, Kx_quarters=5, Ky_quarters=0, include_intercept=False)
+    model_factory_adl = lambda: ADLMidas(m=3, Kx_quarters=5, Ky_quarters=1, include_intercept=False)
     reload_data = False
     # -------------- Data --------------
     if reload_data:
@@ -422,9 +308,10 @@ if __name__ == "__main__":
     y = gdp["GDP"]
     
     reg = pd.read_csv(reg_path)
-    #reg["Date"] = pd.to_datetime(reg["Date"]).dt.to_period("M").dt.to_timestamp(how="start")
-    reg["Date"] = pd.to_datetime(reg["Date"])
+    reg["Date"] = pd.to_datetime(reg["Date"]).dt.to_period("M")
     reg = reg.set_index("Date")
+
+    reg = reg["SP"].to_frame() #test
 
     res = {}
     for asset in reg.columns:
@@ -432,10 +319,14 @@ if __name__ == "__main__":
         # Select asset
         x = reg[asset]
         # Run model
-        res_rmse = recursive_rmse_midas(y, x, model_factory, h_list, reg_info)
+        try:
+            res_rmse = recursive_rmse_midas(y, x, model_factory_adl, h_list, reg_info)
+        except Exception as e:
+            print('Erreur: ', e)
+            res_rmse = {}
         # Append res
         res[asset] = res_rmse
     print(res)
     
     with open('resultats_rmse.json', 'w', encoding='utf-8') as f:
-        json.dump(res, f, indent=4)
+        json.dump(res, f, indent=

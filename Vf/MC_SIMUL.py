@@ -12,6 +12,8 @@ from utils import *
 # Constantes
 RICCATI_MAX_ITERS = 50_000
 RICCATI_TOL = 1e-12
+RHO_GRID = [-0.9, -0.5, 0.5, 0.95]   
+D_GRID    = [-0.9, -0.5, 0.0, 0.5, 0.95]
 
 #============================
 # Kalman filter
@@ -770,9 +772,6 @@ def monte_carlo_simulation_3(
 # Panels
 #===========================
 
-RHO_GRID = [-0.9, -0.5, 0.5, 0.95]   
-D_GRID    = [-0.9, -0.5, 0.0, 0.5, 0.95]
-
 def run_panel_simulation_1(
     h: int,
     N: int = 500,
@@ -929,54 +928,25 @@ def generate_table_5(N: int = 500):
 
 
 tables_4A = generate_table_4A(N=500)
-tables_4A["Panel A (h=1) - Regular MIDAS"].to_excel(
-    "Table_4A_PanelA_MIDAS.xlsx"
-)
-tables_4A["Panel A (h=1) - Multiplicative MIDAS"].to_excel(
-    "Table_4A_PanelA_Multiplicative_MIDAS.xlsx"
-)
+tables_4A["Panel A (h=1) - Regular MIDAS"].to_excel("Table_4A_PanelA_MIDAS.xlsx")
+tables_4A["Panel A (h=1) - Multiplicative MIDAS"].to_excel("Table_4A_PanelA_Multiplicative_MIDAS.xlsx")
+tables_4A["Panel B (h=4) - Regular MIDAS"].to_excel("Table_4A_PanelB_MIDAS.xlsx")
+tables_4A["Panel B (h=4) - Multiplicative MIDAS"].to_excel("Table_4A_PanelB_Multiplicative_MIDAS.xlsx")
 
-tables_4A["Panel B (h=4) - Regular MIDAS"].to_excel(
-    "Table_4A_PanelB_MIDAS.xlsx"
-)
-
-tables_4A["Panel B (h=4) - Multiplicative MIDAS"].to_excel(
-    "Table_4A_PanelB_Multiplicative_MIDAS.xlsx"
-)
 
 tables_4B = generate_table_4B(N=500)
-tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel("Table_4_PanelC_MIDAS_500.xlsx")
-tables_4B["Panel C (h=1) - Multiplicative MIDAS"].to_excel("Table_4_PanelC_ADL_MIDAS_500.xlsx")
-tables_4B["Panel D (h=4) - Regular MIDAS"].to_excel("Table_4_PanelD_MIDAS_500.xlsx")
-tables_4B["Panel D (h=4) - Multiplicative MIDAS"].to_excel("Table_4_PanelD_ADL_MIDAS_500.xlsx")
+tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel("Table_4_PanelC_MIDAS.xlsx")
+tables_4B["Panel C (h=1) - Multiplicative MIDAS"].to_excel("Table_4_PanelC_ADL_MIDAS.xlsx")
+tables_4B["Panel D (h=4) - Regular MIDAS"].to_excel("Table_4_PanelD_MIDAS.xlsx")
+tables_4B["Panel D (h=4) - Multiplicative MIDAS"].to_excel("Table_4_PanelD_ADL_MIDAS.xlsx")
 
 
 tables_5 = generate_table_5(N=500)
-
-tables_5["Panel A (AIC, h=1) - Regular MIDAS"].to_excel(
-    "Table_5_PanelA_MIDAS.xlsx"
-)
-tables_5["Panel A (AIC, h=1) - Multiplicative MIDAS"].to_excel(
-    "Table_5_PanelA_Multiplicative_MIDAS.xlsx"
-)
-
-tables_5["Panel B (BIC, h=1) - Regular MIDAS"].to_excel(
-    "Table_5_PanelB_MIDAS.xlsx"
-)
-tables_5["Panel B (BIC, h=1) - Multiplicative MIDAS"].to_excel(
-    "Table_5_PanelB_Multiplicative_MIDAS.xlsx"
-)
-
-tables_5["Panel C (AIC, h=4) - Regular MIDAS"].to_excel(
-    "Table_5_PanelC_MIDAS.xlsx"
-)
-tables_5["Panel C (AIC, h=4) - Multiplicative MIDAS"].to_excel(
-    "Table_5_PanelC_Multiplicative_MIDAS.xlsx"
-)
-
-tables_5["Panel D (BIC, h=4) - Regular MIDAS"].to_excel(
-    "Table_5_PanelD_MIDAS.xlsx"
-)
-tables_5["Panel D (BIC, h=4) - Multiplicative MIDAS"].to_excel(
-    "Table_5_PanelD_Multiplicative_MIDAS.xlsx"
-)
+tables_5["Panel A (AIC, h=1) - Regular MIDAS"].to_excel("Table_5_PanelA_MIDAS.xlsx")
+tables_5["Panel A (AIC, h=1) - Multiplicative MIDAS"].to_excel("Table_5_PanelA_Multiplicative_MIDAS.xlsx")
+tables_5["Panel B (BIC, h=1) - Regular MIDAS"].to_excel("Table_5_PanelB_MIDAS.xlsx")
+tables_5["Panel B (BIC, h=1) - Multiplicative MIDAS"].to_excel("Table_5_PanelB_Multiplicative_MIDAS.xlsx")
+tables_5["Panel C (AIC, h=4) - Regular MIDAS"].to_excel("Table_5_PanelC_MIDAS.xlsx")
+tables_5["Panel C (AIC, h=4) - Multiplicative MIDAS"].to_excel("Table_5_PanelC_Multiplicative_MIDAS.xlsx")
+tables_5["Panel D (BIC, h=4) - Regular MIDAS"].to_excel("Table_5_PanelD_MIDAS.xlsx")
+tables_5["Panel D (BIC, h=4) - Multiplicative MIDAS"].to_excel("Table_5_PanelD_Multiplicative_MIDAS.xlsx")

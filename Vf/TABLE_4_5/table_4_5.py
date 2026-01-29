@@ -4,6 +4,8 @@ import pandas as pd
     Code à lancer uniquement pour récupérer le code LaTex associé aux résultats
 '''
 
+
+
 panel_A_h1_midas = pd.read_excel("Table_4A_PanelA_MIDAS.xlsx", index_col=0)
 panel_A_h1_adl = pd.read_excel("Table_4A_PanelA_Multiplicative_MIDAS.xlsx", index_col=0)
 

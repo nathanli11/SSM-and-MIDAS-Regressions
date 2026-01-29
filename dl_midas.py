@@ -25,7 +25,7 @@ class DLMidas(Midas):
 
     def objective(self, theta: np.ndarray, Y: np.ndarray, Xlags: np.ndarray) -> float:
         theta1, theta2 = float(theta[0]), float(theta[1])
-        w = self.weights(theta1, theta2)
+        w = self.weights(theta1, theta2, self.Kx_quarters*self.m)
         z = Xlags @ w  # MIDAS aggregated regressor
         b = self._ols_beta(Y, z, self.include_intercept)
 
@@ -70,7 +70,7 @@ class DLMidas(Midas):
         rows_t = []
 
         for t in y.index:
-            target = t - h  # y_{t+h}
+            target = t
             if target not in y.index:
                 continue
 
@@ -135,7 +135,7 @@ class DLMidas(Midas):
         )
 
         theta_hat = np.array(res.x, dtype=float)
-        w_hat = self.weights(*theta_hat)
+        w_hat = self.weights(theta_hat[0], theta_hat[1], self.Kx_quarters*self.m)
         z_hat = Xlags @ w_hat
         beta_hat = self._ols_beta(Y, z_hat, self.include_intercept)
 
@@ -206,8 +206,6 @@ class DLMidas(Midas):
         _, Xlags, _ = self.build_midas_xy(
             y=y.loc[:t],          # y dispo jusqu'à t
             x=x,
-            Kx_quarters=self.Kx_quarters,
-            m=self.m,
             h=h,
         )
 
@@ -215,7 +213,7 @@ class DLMidas(Midas):
         x_row = Xlags[-1, :]  # shape (m*K,)
 
         theta1, theta2 = float(self.theta_[0]), float(self.theta_[1])
-        w = self.weights(theta1, theta2)        # shape (K,) chez toi actuellement
+        w = self.weights(theta1, theta2, self.Kx_quarters*self.m)        # shape (K,) chez toi actuellement
 
         # IMPORTANT:
         # Ton weights() produit K poids, mais x_row a m*K éléments (mensuels).

@@ -129,7 +129,7 @@ class ADLMidas(Midas):
 
         # Itère sur les trimestres "origine" t pour lesquels on veut former les régressseurs
         for t in y.index:
-            target = t + h
+            target = t
             if target not in y.index:
                 continue
 
@@ -145,7 +145,7 @@ class ADLMidas(Midas):
             x_blocks = []
             ok = True
 
-            for j in range(0, self.Kx_quarters + 1):
+            for j in range(1, self.Kx_quarters + 1):
                 q = t - j
 
                 # date d'info intra-trimestre: 2e mois du trimestre q
@@ -193,9 +193,7 @@ class ADLMidas(Midas):
         y_est: pd.Series,
         x: pd.Series,
         h: int = 1,
-        theta_y_init: Tuple[float, float] = (0.0, 0.0),
-        theta_x_agg_init: Tuple[float, float] = (0.0, 0.0),
-        theta_x_init: Tuple[float, float] = (0.0, 0.0),
+        theta_init: Tuple[float, float] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
         opt_method: str = "Nelder-Mead",
         opt_options: Optional[Dict[str, Any]] = None,
     ) -> MIDASResult:
@@ -206,9 +204,8 @@ class ADLMidas(Midas):
 
         # Preparation de Y et X
         Y, Ylags, Xlags_monthly, _ = self.build_midas_xy(y=y_est, x=x, h=h)
-
         # Vecteur des thetas initiaux
-        x0 = np.array(list(theta_y_init) + list(theta_x_agg_init) + list(theta_x_init), dtype=float)
+        x0 = np.array(list(theta_init), dtype=float)
 
         # Optimize tetha to minimize SSE
         res = minimize(
@@ -308,7 +305,7 @@ class ADLMidas(Midas):
             t = y.index[-1]
 
         # Construire les matrices nécessaires
-        Y_target, Y_lags, X_monthly_raw, meta = self.build_midas_xy(
+        _, Y_lags, X_monthly_raw, meta = self.build_midas_xy(
             y=y.loc[:t],
             x=x,
             h=h,
@@ -330,13 +327,12 @@ class ADLMidas(Midas):
         theta_hat = np.asarray(self.theta_, dtype=float).reshape(-1)
         if theta_hat.size != 6:
             raise ValueError(f"theta_ doit être de taille 6 (ADL-MIDAS), reçu {theta_hat.size}")
-
         theta_y1, theta_y2, theta_x1_1, theta_x1_2, theta_x2_1, theta_x2_2 = map(float, theta_hat)
 
         # Weights
-        w_y = self.weights(theta_hat[0], theta_hat[1], self.Ky_quarters)            # (Ky,)
-        w_x_agg = self.weights(theta_hat[2], theta_hat[3], self.Kx_quarters)        # (Kx,)
-        w_x = self.weights(theta_hat[4], theta_hat[5], self.m)                      # (m,)
+        w_y = self.weights(theta_y1, theta_y2, self.Ky_quarters)                # (Ky,)
+        w_x_agg = self.weights(theta_x1_1, theta_x1_2, self.Kx_quarters)        # (Kx,)
+        w_x = self.weights(theta_x2_1, theta_x2_2, self.m)                      # (m,)
 
         # Aggrégat Y_lagged sur Ky
         Z_Y = float(ylags_row @ w_y)                                                       # (T,)

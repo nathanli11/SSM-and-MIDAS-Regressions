@@ -246,10 +246,10 @@ def recursive_rmse_midas(y: pd.Series, x: pd.Series, model_factory, h_list: Iter
         # t = trimestre "à prévoir" en nowcast (h=1) ou à horizon h
         # Ici on prend comme origine d’estimation: y dispo jusqu’à (t-1)
         for t in pd.period_range(start_eval, end_eval, freq="Q"):
-            est_end = t - 1  # y observé jusqu’à t-1
+            est_end = t - h  # y observé jusqu’à t-h
             if est_end < end_estimation:
                 continue
-            if (t + (h-1)) not in y.index:
+            if t not in y.index:
                 continue
 
             model = model_factory()
@@ -260,8 +260,7 @@ def recursive_rmse_midas(y: pd.Series, x: pd.Series, model_factory, h_list: Iter
 
             # Prévision de y_{t+(h-1)} en utilisant info mensuelle jusqu’au 2e mois de t
             # (pour h=1 => y_t)
-            target = t + (h-1)
-            y_true = float(y.loc[target])
+            y_true = float(y.loc[t])
 
             # construit une seule ligne X au trimestre t (origine = t)
             y_for_pred = y.loc[:est_end]  # y dispo
@@ -269,6 +268,7 @@ def recursive_rmse_midas(y: pd.Series, x: pd.Series, model_factory, h_list: Iter
 
             errors.append((yhat - y_true) ** 2)
         rmses[h] = float(np.sqrt(np.mean(errors)))
+        print('rmse: ', rmses[h])
 
     return rmses
 
@@ -288,8 +288,8 @@ if __name__ == "__main__":
     h_list = range(1, 9)
     with open("regressors_info.json", "r", encoding="utf-8") as f:
         reg_info = json.load(f)
-    model_factory_dl = lambda: DLMidas(Kx_quarters=5, m=3, include_intercept=False)
-    model_factory_adl = lambda: DLMidas(Ky_quarters=1, Kx_quarters=5, m=3, include_intercept=False)
+    model_factory_dl = lambda: DLMidas(m=3, Kx_quarters=5, Ky_quarters=0, include_intercept=False)
+    model_factory_adl = lambda: ADLMidas(m=3, Kx_quarters=5, Ky_quarters=1, include_intercept=False)
     reload_data = False
     # -------------- Data --------------
     if reload_data:
@@ -311,7 +311,7 @@ if __name__ == "__main__":
     reg["Date"] = pd.to_datetime(reg["Date"]).dt.to_period("M")
     reg = reg.set_index("Date")
 
-    reg = reg["LEI"].to_frame() #test lei
+    reg = reg["SP"].to_frame() #test
 
     res = {}
     for asset in reg.columns:
@@ -320,7 +320,7 @@ if __name__ == "__main__":
         x = reg[asset]
         # Run model
         try:
-            res_rmse = recursive_rmse_midas(y, x, model_factory, h_list, reg_info)
+            res_rmse = recursive_rmse_midas(y, x, model_factory_adl, h_list, reg_info)
         except Exception as e:
             print('Erreur: ', e)
             res_rmse = {}

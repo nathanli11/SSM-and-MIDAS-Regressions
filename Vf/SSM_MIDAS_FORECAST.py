@@ -19,17 +19,11 @@ final_data = (
 )
 
 # Kalman Filter
+
 def kalman_loglik_two_series(df, rho, d1, d2, gamma1, gamma2, sig2_u1, sig2_u2,
                              names, x0=None, P0=None, jitter_R=1e-8):
     """
-    Log-vraisemblance (Kalman) du modèle:
-      f_t = rho f_{t-1} + eta_t,      Var(eta)=1  (normalisation)
-      u1_t= d1 u1_{t-1} + eps1_t,     Var(eps1)=sig2_u1
-      u2_t= d2 u2_{t-1} + eps2_t,     Var(eps2)=sig2_u2
-      gdp_t = gamma1 f_t + u1_t       (souvent manquant)
-      x_t   = gamma2 f_t + u2_t       (souvent observé)
-
-    df: index HF, colonnes gdp et x, gdp = NaN hors dates LF.
+    Log-vraisemblance (Kalman) du modèle à deux séries mensuelles:
     """
     y = df.loc[:, list(names)].values.astype(float)
     T, k = y.shape
@@ -39,7 +33,7 @@ def kalman_loglik_two_series(df, rho, d1, d2, gamma1, gamma2, sig2_u1, sig2_u2,
     G = np.array([[rho, 0.0, 0.0],
                   [0.0, d1, 0.0],
                   [0.0, 0.0, d2]], dtype=float)
-
+    
     # sigma_f^2 = 1 (normalisation)
     Q = np.diag([1.0, sig2_u1, sig2_u2]).astype(float)
 
@@ -64,7 +58,7 @@ def kalman_loglik_two_series(df, rho, d1, d2, gamma1, gamma2, sig2_u1, sig2_u2,
     ll = 0.0
 
     for t in range(T):
-        # predict
+        # Prediction
         a_pred = G @ a_t
         P_pred = G @ P_t @ G.T + Q
 
@@ -83,12 +77,11 @@ def kalman_loglik_two_series(df, rho, d1, d2, gamma1, gamma2, sig2_u1, sig2_u2,
         v = y_obs - (Z_obs @ a_pred)
         S = Z_obs @ P_pred @ Z_obs.T + R_obs
 
-        # loglik contribution
+        # contribution log-vraisemblance
         sign, logdet = np.linalg.slogdet(S)
         if sign <= 0:
             return -np.inf  # S doit être SPD
 
-        # quad form v' S^{-1} v
         try:
             Sinv_v = np.linalg.solve(S, v)
         except np.linalg.LinAlgError:
@@ -97,7 +90,7 @@ def kalman_loglik_two_series(df, rho, d1, d2, gamma1, gamma2, sig2_u1, sig2_u2,
 
         ll += -0.5 * (logdet + v @ Sinv_v + m * np.log(2*np.pi))
 
-        # update
+        # MAJ filtre
         PZt = P_pred @ Z_obs.T
         try:
             K = np.linalg.solve(S, PZt.T).T
@@ -114,7 +107,6 @@ def kalman_loglik_two_series(df, rho, d1, d2, gamma1, gamma2, sig2_u1, sig2_u2,
 def fit_ssm_ml(df_hf, names):
     """
     Estime (rho,d1,d2,gamma1,gamma2,sig2_u1,sig2_u2) par ML (Kalman innovations).
-    Contraintes stationnaires via tanh, variances via exp.
     """
     def unpack(theta):
         trho, td1, td2, g1, g2, lsu1, lsu2 = theta
@@ -151,17 +143,7 @@ def fit_ssm_ml(df_hf, names):
 
 def kalman_filter_minimal(df_x, G, Q, a, Z, R, names, x0=None, P0=None, scaler=None):
     """
-    Filtre de Kalman:
-      alpha_t = a + G alpha_{t-1} + w_t,   w_t ~ N(0,Q)
-      y_t     = Z alpha_t + v_t,          v_t ~ N(0,R)
-
-    NaN autorisés dans y_t.
-
-    Si scaler fourni (StandardScaler), on standardise y:
-      y_std = (y - mean_) / scale_
-    en respectant les NaN.
-
-    Returns dict: a_pred, P_pred, a_filt, P_filt, index
+    Filtre de Kalman minimal (prévision et filtrage) pour données avec NaN.
     """
     y = df_x.reindex(columns=names).values.astype(float)
     idx = df_x.index
@@ -197,7 +179,7 @@ def kalman_filter_minimal(df_x, G, Q, a, Z, R, names, x0=None, P0=None, scaler=N
         sd = np.where(sd == 0.0, 1.0, sd)
 
     for t in range(T):
-        # predict
+        # prediction
         a_t_pred = G @ a_t + a
         P_t_pred = G @ P_t @ G.T + Q
 
@@ -217,7 +199,7 @@ def kalman_filter_minimal(df_x, G, Q, a, Z, R, names, x0=None, P0=None, scaler=N
             v = y_obs - (Z_obs @ a_t_pred)              # innovation
             S = Z_obs @ P_t_pred @ Z_obs.T + R_obs      # cov innovation
 
-            # gain K = P Z' S^{-1} via solve (stable)
+            # gain K
             PZt = P_t_pred @ Z_obs.T                    # (p, m)
             try:
                 K = np.linalg.solve(S, PZt.T).T         # (p, m)
@@ -227,7 +209,6 @@ def kalman_filter_minimal(df_x, G, Q, a, Z, R, names, x0=None, P0=None, scaler=N
 
             a_t = a_t_pred + K @ v
 
-            # Joseph form
             KH = K @ Z_obs
             P_t = (I - KH) @ P_t_pred @ (I - KH).T + K @ R_obs @ K.T
 
@@ -238,9 +219,10 @@ def kalman_filter_minimal(df_x, G, Q, a, Z, R, names, x0=None, P0=None, scaler=N
             "a_filt": a_filt, "P_filt": P_filt,
             "index": idx}
 
-
 def build_ssm_two_series_ar1_ml(params, jitter_R=1e-8):
-
+    """"
+    Construit les matrices SSM à partir des paramètres ML estimés.
+    """
     rho = params['rho']
     d1 = params['d1']
     d2 = params['d2']
@@ -260,9 +242,8 @@ def build_ssm_two_series_ar1_ml(params, jitter_R=1e-8):
     R = jitter_R * np.eye(2)
     return G, Q, a, Z, R
 
-# -----------------------------
-# 0) Helpers
-# -----------------------------
+# Fonctions utilitaires pour les périodes trimestrielles
+
 def quarter_end_months(q_period: pd.Period) -> pd.Timestamp:
     """Dernier mois (fin de trimestre) en fin de mois."""
     return q_period.asfreq("Q").end_time.to_period("M").to_timestamp("M")
@@ -277,25 +258,14 @@ def to_quarter_period_index(idx):
     return pd.PeriodIndex(idx, freq="Q")
 
 def normalize_full_sample(df: pd.DataFrame):
+    """Normalise une série (DataFrame 1 colonne) par sa moyenne/écart-type full sample."""
     mu = df[df.columns[0]].mean()
     sd = df[df.columns[0]].std(ddof=0)
     sd = 1.0 if sd == 0 else sd
     return (df[df.columns[0]] - mu) / sd, mu, sd
 
-# ============================================================
-# Forecasts "comme le papier" (exercice récursif expanding window)
-# - Chaque modèle utilise UNE seule variable mensuelle x_t
-# - Prévisions faites avec données mensuelles jusqu'au 2e mois du trimestre
-# - Fenêtre d'estimation initiale (ex: 1959Q1–1978Q4), puis expanding
-# - Normalisation par la moyenne/variance de l'échantillon COMPLET (full sample)
-# - Produit des prévisions 1 à 8 trimestres ahead (h = 1..8)
-# ============================================================
+# Filtre de Kalman pour SSM à deux séries mensuelles
 
-
-# -----------------------------
-# 4) SSM (Kalman) : modèle simple type capture (f AR(1), u1 AR(1), u2 AR(1))
-#     + estimation ML via innovations (niveau 2)
-# -----------------------------
 def kalman_filter_states(df_hf, params, names, jitter_R=1e-8):
     """Filtre (renvoie a_pred / a_filt) pour utilisation en forecast."""
     y = df_hf[names].values.astype(float)
@@ -353,12 +323,7 @@ def kalman_filter_states(df_hf, params, names, jitter_R=1e-8):
 
 def forecast_gdp_quarter_ssm(kf_out, params, origin_month, target_q):
     """
-    Forecast/nowcast du GDP trimestriel target_q à l'information jusqu'à origin_month (fin de mois).
-    On suit l'esprit du papier: origin_month = 2e mois du trimestre target_q.
-    Ici, on approxime GDP_q comme la valeur de 'gdp_t' au dernier mois du trimestre
-    (car dans le modèle (3.1) le low-freq est traité périodiquement via Z_j).
-    Donc:
-      GDP_q_hat = E[gdp_{m3} | info jusqu'à m2] = [gamma1,1,0] * E[alpha_{m3} | info jusqu'à m2]
+    Prévision du GDP trimestriel target_q à partir du filtre Kalman
     """
     idx = pd.DatetimeIndex(kf_out["index"])
     if origin_month not in idx:
@@ -372,7 +337,6 @@ def forecast_gdp_quarter_ssm(kf_out, params, origin_month, target_q):
     # dernier mois du trimestre target_q
     m3 = quarter_end_months(target_q)
     if m3 not in idx:
-        # si idx s'arrête avant, on peut projeter en nombre de mois
         step = (m3.to_period("M") - origin_month.to_period("M")).n
     else:
         step = int(np.where(idx == m3)[0][0]) - t0
@@ -389,9 +353,8 @@ def forecast_gdp_quarter_ssm(kf_out, params, origin_month, target_q):
     gdp_hat = g1 * f_m3 + u1_m3
     return float(gdp_hat)
 
-# -----------------------------
-# 5) Exercice récursif expanding window "comme le papier"
-# -----------------------------
+# Previsions récursives SSM avec Kalman
+
 def recursive_forecast_exercise(gdp_q_col : pd.DataFrame,
                                 x_m_col : pd.DataFrame,
                                 start_est_q: str,
@@ -502,9 +465,8 @@ def recursive_forecast_exercise(gdp_q_col : pd.DataFrame,
 
     return pd.DataFrame(out)
 
-
-
 # Boucle à run pour sortir les resultats de forecast et RMSE
+
 for i in range(len(stat_xl.columns)):
   names = [gdp_name, series_names[i]]
   params = fit_ssm_ml(final_data, names)

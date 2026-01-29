@@ -35,3 +35,9 @@ ORGA CODE PROJET:
 - fichier install.bat
 
 - effacer historique de merge ?
+
+
+
+DANS MISE EN COMMUN:
+- choisir les One/Two_factors à utiliser (dans src/ssm/params) (MC VS Table_1_2_3)
+- voir les foncitons avec/sans rho

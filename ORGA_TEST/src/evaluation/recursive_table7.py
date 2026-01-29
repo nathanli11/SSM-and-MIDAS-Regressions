@@ -4,8 +4,7 @@ import numpy as np
 import pandas as pd
 from typing import Tuple
 
-from midas.adl_regular import ADLRegularMIDAS
-from midas.adl_multiplicative import ADLMultiplicativeMIDAS
+from midas.adl_midas import ADLRegularMIDAS, ADLMultiplicativeMIDAS
 
 def recursive_rmse(
     y_q: pd.Series,
@@ -83,107 +82,6 @@ def recursive_rmse(
     actual = np.asarray(actual, float)
     rmse = float(np.sqrt(np.mean((preds - actual) ** 2)))
     return rmse, int(len(preds))
-
-def recursive_rmse_windowed(
-    y_q: pd.Series,
-    x_m: pd.Series,
-    h: int,
-    model: str,
-    train_start: str,
-    train_end: str,
-    eval_end: str,
-    Kx_LF: int = 6,
-    m: int = 3,
-    j_obs: int = 2,
-    warm_start: bool = True,
-    maxiter: int = 3000,
-) -> Tuple[float, int]:
-    """
-    Expanding-window RMSE with regressor-specific training window:
-      - Estimation starts at train_start (fixed)
-      - First origin is train_end (so first evaluated target is train_end + h)
-      - Evaluation targets: (train_end + h) .. eval_end
-    """
-    # --- y quarterly PeriodIndex ---
-    y_q = y_q.copy()
-    if not isinstance(y_q.index, pd.PeriodIndex):
-        y_q.index = pd.PeriodIndex(pd.to_datetime(y_q.index), freq="Q")
-    y_q = y_q.sort_index().asfreq("Q")
-
-    train_start = pd.Period(train_start, freq="Q")  # type: ignore
-    train_end   = pd.Period(train_end,   freq="Q")  # type: ignore
-    eval_end    = pd.Period(eval_end,    freq="Q")  # type: ignore
-
-    # evaluation starts at train_end + h (as you specified)
-    eval_start = train_end + int(h)
-
-    # model init
-    if model == "regular":
-        M = ADLRegularMIDAS(Kx_LF=Kx_LF, m=m, j_obs=j_obs, include_intercept=True)
-        theta_init = (0.0, 0.0)
-    elif model == "multiplicative":
-        M = ADLMultiplicativeMIDAS(Kx_LF=Kx_LF, m=m, j_obs=j_obs, include_intercept=True)
-        theta_init = (0.0, 0.0, 0.0, 0.0)
-    else:
-        raise ValueError("model must be 'regular' or 'multiplicative'")
-
-    preds, actual = [], []
-
-    for target in pd.period_range(eval_start, eval_end, freq="Q"):
-        origin = target - int(h)
-
-        # enforce training start AND expanding end at origin
-        if origin < train_end:
-            continue
-        if target not in y_q.index or pd.isna(y_q.loc[target]):  # type: ignore
-            continue
-
-        y_train = y_q[(y_q.index >= train_start) & (y_q.index <= origin)]
-        if len(y_train) == 0:
-            continue
-
-        try:
-            if model == "regular":
-                fit = M.fit(
-                    y_q=y_train,
-                    x_m=x_m,
-                    h=h,
-                    origin=origin,
-                    theta_init=theta_init,   # type: ignore
-                    maxiter=maxiter,
-                )
-                yhat = M.predict_one(y_q=y_q, x_m=x_m, origin=origin)
-                if warm_start and fit.success:
-                    theta_init = (float(fit.theta[0]), float(fit.theta[1]))
-            else:
-                fit = M.fit(
-                    y_q=y_train,
-                    x_m=x_m,
-                    h=h,
-                    origin=origin,
-                    theta_out_init=(theta_init[0], theta_init[1]),  # type: ignore
-                    theta_in_init=(theta_init[2], theta_init[3]),   # type: ignore
-                    maxiter=maxiter,
-                )
-                yhat = M.predict_one(y_q=y_q, x_m=x_m, origin=origin)
-                if warm_start and fit.success:
-                    theta_init = (float(fit.theta[0]), float(fit.theta[1]), float(fit.theta[2]), float(fit.theta[3]))
-        except ValueError:
-            # includes "No usable training observations."
-            continue
-
-        preds.append(float(yhat))
-        actual.append(float(y_q.loc[target]))  # type: ignore
-
-    if len(preds) == 0:
-        return float("nan"), 0
-
-    preds = np.asarray(preds, float)
-    actual = np.asarray(actual, float)
-    rmse = float(np.sqrt(np.mean((preds - actual) ** 2)))
-    return rmse, int(len(preds))
-
-
 
 def table7_rmse_grid(
     y_q: pd.Series,

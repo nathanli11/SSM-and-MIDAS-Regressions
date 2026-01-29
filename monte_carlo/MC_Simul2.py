@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-import MC_Simul1 as sim1
+import monte_carlo.MC_Simul1 as sim1
 
 def simulate_two_factor_dgp(
         T=40,

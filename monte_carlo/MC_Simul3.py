@@ -8,7 +8,7 @@ On compare les performances de prévision hors échantillon.
 import table1_2_3 as tb
 import numpy as np
 import pandas as pd
-import MC_Simul1 as sim1
+import monte_carlo.MC_Simul1 as sim1
 
 def kalman_forecast_series(y, x, h=1, m=3):
     p_hat = sim1.fit_kalman_mle(y, x, m=m)

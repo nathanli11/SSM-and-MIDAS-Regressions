@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 @dataclass
 class MIDASFit:
@@ -13,34 +13,26 @@ class MIDASFit:
     success: bool
     message: str
 
-# def exp_almon_weights(K: int, theta1: float, theta2: float) -> np.ndarray:
-#     """Exponential Almon weights with paper-style index j=1..K.
-
-#     w_j(theta) = exp(theta1*j + theta2*j^2) / sum_{i=1..K} exp(theta1*i + theta2*i^2)
-
-#     Notes (paper alignment):
-#     - Many MIDAS papers write the polynomial over j=1..K; using j=0..K-1 is fine
-#       but changes interpretation and sometimes numerics. Here we follow j=1..K.
-#     """
-#     j = np.arange(1, K + 1, dtype=float)
-#     x = theta1 * j + theta2 * j**2
-#     w = np.exp(x - x.max())
-#     return w / w.sum()
 
 def exp_almon_weights(K: int, theta1: float, theta2: float) -> np.ndarray:
     """
-    Numerically stable exponential Almon lag polynomial weights.
+        Fonction de poids exponentiel d'Almon
     """
     j = np.arange(K + 1, dtype=float)
     z = theta1 * j + theta2 * j * j
-    # Numerical stabilization
+
+    # Stabilisation numérique
     z = z - np.max(z)
+
     a = np.exp(z)
     s = a.sum()
+
+    # Gestion des cas infinis et négatifs
     if not np.isfinite(s) or s <= 0:
         out = np.zeros(K + 1)
         out[0] = 1.0
         return out
+
     return a / s
 
 def ols(y: np.ndarray, X: np.ndarray) -> np.ndarray:
@@ -131,11 +123,7 @@ class MixedFreqIndexer:
         return block[::-1]  # recent→old
 
 def hf_lag_at_low_t(x: np.ndarray, t: int, m: int, lag_hf: int) -> float:
-    """
-    x is high-frequency array shape (T*m, 1) or (T*m,)
-    Low-frequency time t corresponds to end-of-period high-frequency index t*m-1.
-    lag_hf=0 means x at end of period t.
-    """
+    
     if x.ndim == 2:
         x1 = x[:, 0]
     else:

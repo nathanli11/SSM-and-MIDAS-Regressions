@@ -21,20 +21,6 @@ OPT_TOL = 1e-10
 D_GRID = [-0.9, -0.5, 0.0, 0.5, 0.95]
 RHO_GRID = [-0.9, -0.5, 0.0, 0.5, 0.95]
 
-# -----------------------------
-# Fonctions utiles
-# -----------------------------
-
-def block_diag(*mats: np.ndarray) -> np.ndarray:
-    n = sum(m.shape[0] for m in mats)
-    out = np.zeros((n, n))
-    i = 0
-    for m in mats:
-        k = m.shape[0]
-        out[i:i+k, i:i+k] = m
-        i += k
-    return out
-
 
 # -----------------------------
 # Def SSM

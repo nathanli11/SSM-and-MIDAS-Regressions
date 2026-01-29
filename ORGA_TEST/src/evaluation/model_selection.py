@@ -7,8 +7,8 @@ from ORGA_TEST.src.midas.forecast import regular_midas_forecast, multiplicative_
 # GRID as in the paper
 # ----------------------------------------------------
 RHO_GRID = [-0.9, -0.5, 0.5, 0.95]
-RHO1_GRID = [-0.9, -0.5, 0.5, 0.95]   # observed factor (in x)
-RHO2_GRID = [-0.9, -0.5, 0.5, 0.95]   # unobserved factor (in y only)
+#RHO1_GRID = [-0.9, -0.5, 0.5, 0.95]   # observed factor (in x)
+#RHO2_GRID = [-0.9, -0.5, 0.5, 0.95]   # unobserved factor (in y only)
 D_GRID   = [-0.9, -0.5, 0.0, 0.5, 0.95]
 
 RICCATI_MAX_ITERS = 50_000
@@ -19,6 +19,7 @@ KF_WARMUP_PERIODS = 400    # warmup in low-freq periods when extracting impulse-
 OPT_TOL = 1e-10
 
 def gaussian_loglike(residuals):
+    """Log-vraisemblance sous hypothese d erreurs gaussiennes"""
     residuals = np.asarray(residuals)
     # clip pour éviter explosions numériques
     residuals = np.clip(residuals, -1e6, 1e6)
@@ -29,38 +30,28 @@ def gaussian_loglike(residuals):
     return -0.5 * T * (np.log(2*np.pi*sigma2) + 1)
 
 def aic(loglike: float, k: int) -> float:
+    """AIC critère"""
     return -2 * loglike + 2 * k
 
 def bic(loglike: float, k: int, T: int) -> float:
     return -2 * loglike + k * np.log(T)
 
 def rmspe(forecast, actual):
+    """Retourne l erreur de prevision quadratique moyenne"""
     return np.sqrt(np.mean(((forecast - actual)) ** 2))
 
+
 def kalman_ic_1f(y, x, m=3):
+    # Critères pour aic ou bic 1 facteur
     p = fit_kalman_mle(y, x, m=m)
     ll = kalman_loglike_full(p, y, x)
     k = 5   # rho, d, sig2_f, sig2_uy, sig2_ux
     return ll, k, p
 
 def kalman_ic_2f(y, x, m=3):
+    # critères pour aic ou bic 2 facteurs
     p = TwoFactorParams(m=m)
     ll = kalman_loglike_2f(p, y, x)
     k = 6   # rho1, rho2, sig2_f1, sig2_f2, sig2_uy, sig2_ux
     return ll, k, p
 
-def midas_ic(y, x, h=1, m=3, K=12):
-    fcst, act = regular_midas_forecast(y, x, h=h, m=m, Kx=K)
-    residuals = act - fcst
-    loglike = gaussian_loglike(residuals)
-    # params: b0,b1,b2 + theta1,theta2  => 5
-    k = 5
-    return loglike, k, len(residuals)
-
-def adl_midas_ic(y, x, h=1, m=3, Ky=4, Kx=4):
-    fcst, act = multiplicative_midas_forecast(y, x, h=h, m=m, Ky=Ky, Kx=Kx)
-    resid = act - fcst
-    ll = gaussian_loglike(resid)
-    # betas(2) + theta_y(2) + theta_x_inter(2) + theta_x_intra(2) => 8
-    k = 8
-    return ll, k, len(resid)

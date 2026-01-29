@@ -6,7 +6,6 @@ import pandas as pd
 from numpy.linalg import lstsq
 from scipy.optimize import minimize
 from dataclasses import dataclass
-from typing import List, Tuple
 from utils import *
 
 # Constantes
@@ -279,21 +278,6 @@ def kalman_filter_forecast(y, x, h=1, m=3):
 
     return np.array(forecasts), np.array(actuals)
 
-def kalman_forecast_series(y, x, h=1, m=3):
-    '''Génère une série complète de prévisions à horizon h
-    et retourne également les paramètres estimés du modèle'''
-    p_hat = fit_kalman_mle(y, x, m=m)
-    kf = periodic_steady_state_kf(p_hat)
-    _, states_low = run_periodic_kf_filter(kf, y, x)
-
-    fcasts = []
-    actuals = []
-    for t in range(len(y) - h):
-        fcasts.append(forecast_y_from_state(p_hat, states_low[t], h))
-        actuals.append(y[t+h])
-
-    return np.array(fcasts), np.array(actuals), p_hat
-
 def kalman_ic_1f(y, x, m=3):
     # Critères pour aic ou bic 1 facteur
     p = fit_kalman_mle(y, x, m=m)
@@ -377,51 +361,6 @@ def regular_midas_forecast(y, x, h=1, m=3, Ky=4, Kx=12):
     forecasts = Xreg @ beta
     actuals = Y
     return np.asarray(forecasts), np.asarray(actuals)
-
-def midas_aggregate_x(
-    x: np.ndarray,
-    t: int,
-    m: int,
-    theta1: float,
-    theta2: float
-) -> float:
-   # Fonction de poids
-    w = exp_almon_weights(m - 1, theta1, theta2)
-    val = 0.0
-    for k in range(m):
-        idx = t*m-1-k
-        if idx<0:
-            continue
-        val += w[k] * x[idx, 0]
-
-    return val
-
-def midas_x_term(
-    x: np.ndarray,
-    t: int,
-    m: int,
-    Kx: int,
-    theta_x1: float,
-    theta_x2: float
-) -> float:
-    """Terme x de midas"""
-    w_x = exp_almon_weights(Kx, theta_x1, theta_x2)
-
-    return sum(
-        w_x[j] * midas_aggregate_x(x, t - j, m, theta_x1, theta_x2)
-        for j in range(Kx + 1)
-    )
-
-def midas_y_term(
-    y: np.ndarray,
-    t: int,
-    Ky: int,
-    theta_y1: float,
-    theta_y2: float
-) -> float:
-    """terme en y de midas"""
-    w_y = exp_almon_weights(Ky, theta_y1, theta_y2)
-    return sum(w_y[j] * y[t - j] for j in range(Ky + 1))
 
 def multiplicative_midas_forecast(y, x, h=1, m=3, Ky=4, Kx=4):
     """ Prev MIDAS mutliplicative avec ponderations exp d'Almon"""
@@ -606,23 +545,6 @@ def aic(loglike: float, k: int) -> float:
 def bic(loglike: float, k: int, T: int) -> float:
     return -2 * loglike + k * np.log(T)
 
-def midas_ic(y, x, h=1, m=3, K=12):
-    """Critères pour MIDAS régulier"""
-    fcst, act = regular_midas_forecast(y, x, h=h, m=m, K=K)
-    residuals = act - fcst
-    loglike = gaussian_loglike(residuals)
-    # parametres: b0,b1,b2 + theta1,theta2  => 5
-    k = 5
-    return loglike, k, len(residuals)
-
-def adl_midas_ic(y, x, h=1, m=3, Ky=4, Kx=4):
-    """Critères pour ADL-MIDAS"""
-    fcst, act = multiplicative_midas_forecast(y, x, h=h, m=m, Ky=Ky, Kx=Kx)
-    resid = act - fcst
-    ll = gaussian_loglike(resid)
-    # betas(2) + theta_y(2) + theta_x_inter(2) + theta_x_intra(2) => 8
-    k = 8
-    return ll, k, len(resid)
 
 def kalman_ic(y, x, m=3):
     """Critères pour Kalman un facteur"""

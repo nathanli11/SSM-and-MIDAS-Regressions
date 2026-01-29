@@ -44,8 +44,9 @@ class DLMidas(Midas):
         
     def fit(
         self,
-        Y: np.ndarray,
-        Xlags: np.ndarray,
+        y_est: pd.Series,
+        x: pd.Series,
+        h: int = 1,
         theta_init: Tuple[float, float] = (0.0, 0.0),
         opt_method: str = "Nelder-Mead",
         opt_options: Optional[Dict[str, Any]] = None,
@@ -76,7 +77,7 @@ class DLMidas(Midas):
         )
 
         theta_hat = np.array(res.x, dtype=float)
-        w_hat = self.weights(theta_hat[0], theta_hat[1])
+        w_hat = self.weights(theta_hat[0], theta_hat[1], self.Kx_quarters*self.m)
         z_hat = Xlags @ w_hat
         beta_hat = self._ols_beta(Y, z_hat, self.include_intercept)
 

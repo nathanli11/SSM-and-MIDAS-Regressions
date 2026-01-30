@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 # Path du fichier de data brute
-file_path = 'data_qg.xlsx'
+file_path = 'data.xlsx'
 
 # Noms des feuille du fichier excel
 sheet_names = [

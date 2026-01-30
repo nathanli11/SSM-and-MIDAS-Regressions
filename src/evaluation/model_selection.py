@@ -1,13 +1,11 @@
 import numpy as np
-from ORGA_TEST.src.ssm.likelihood import kalman_loglike_full, kalman_loglike_2f, fit_kalman_mle
-from ORGA_TEST.src.ssm.params import TwoFactorParams
+from src.ssm.likelihood import kalman_loglike_full, kalman_loglike_2f, fit_kalman_mle
+from src.ssm.params import TwoFactorParams
 
 # ----------------------------------------------------
 # GRID as in the paper
 # ----------------------------------------------------
 RHO_GRID = [-0.9, -0.5, 0.5, 0.95]
-#RHO1_GRID = [-0.9, -0.5, 0.5, 0.95]   # observed factor (in x)
-#RHO2_GRID = [-0.9, -0.5, 0.5, 0.95]   # unobserved factor (in y only)
 D_GRID   = [-0.9, -0.5, 0.0, 0.5, 0.95]
 
 RICCATI_MAX_ITERS = 50_000

@@ -2,7 +2,9 @@ import numpy as np
 from typing import Tuple
 from scipy.optimize import minimize
 
-from ORGA_TEST.src.midas.midas_base import exp_almon_weights
+from src.midas.midas_base import exp_almon_weights
+from src.evaluation.model_selection import OPT_TOL
+
 # -----------------------------
 # MIDAS specifications (regular and multiplicative)
 # -----------------------------

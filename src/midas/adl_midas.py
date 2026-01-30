@@ -5,7 +5,7 @@ import pandas as pd
 from typing import Optional, Tuple
 from scipy.optimize import minimize
 
-from ORGA_TEST.src.midas.midas_base import MixedFreqIndexer, exp_almon_weights, ols, MIDASFit
+from src.midas.midas_base import MixedFreqIndexer, exp_almon_weights, ols, MIDASFit
 
 class ADLRegularMIDAS:
     """Regular ADL-MIDAS (m1).

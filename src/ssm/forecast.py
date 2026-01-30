@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
 
-from ORGA_TEST.src.ssm.params import OneFactorParams
-from ORGA_TEST.src.ssm.likelihood import fit_kalman_mle
-from ORGA_TEST.src.ssm.periodic_kf import (periodic_steady_state_kf, run_periodic_kf_filter)
-from ORGA_TEST.src.evaluation.data_management import quarter_end_months
+from src.ssm.params import OneFactorParams
+from src.ssm.likelihood import fit_kalman_mle
+from src.ssm.periodic_kf import (periodic_steady_state_kf, run_periodic_kf_filter)
+from src.evaluation.data_management import quarter_end_months
 
 def forecast_y_from_state(p: OneFactorParams, state_at_t: np.ndarray, h: int) -> float:
     """

@@ -1,5 +1,5 @@
 import numpy as np
-from ORGA_TEST.src.ssm.params import OneFactorParams
+from src.ssm.params import OneFactorParams
 from typing import List, Tuple
 
 def build_measurement_mats(p: OneFactorParams) -> Tuple[List[np.ndarray], List[np.ndarray]]:

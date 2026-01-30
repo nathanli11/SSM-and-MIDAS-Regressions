@@ -1,9 +1,9 @@
 import numpy as np
 from typing import Tuple
 
-from ORGA_TEST.src.ssm.params import OneFactorParams
-from ORGA_TEST.src.ssm.periodic_kf import periodic_steady_state_kf, run_periodic_kf_filter
-from ORGA_TEST.src.ssm.forecast import forecast_y_from_state
+from src.ssm.params import OneFactorParams
+from src.ssm.periodic_kf import periodic_steady_state_kf, run_periodic_kf_filter
+from src.ssm.forecast import forecast_y_from_state
 
 KF_WARMUP_PERIODS = 100 
 

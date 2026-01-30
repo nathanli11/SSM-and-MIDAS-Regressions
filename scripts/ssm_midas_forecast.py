@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 
-from ORGA_TEST.src.ssm.kalman_two_series import (
-    build_ssm_two_series_ar1_ml, kalman_filter_minimal, fit_ssm_ml
+from src.ssm.kalman_two_series import (
+    build_ssm_two_series_ar1_ml, fit_ssm_ml
 )
-from ORGA_TEST.src.evaluation.recursive_table7 import recursive_forecast_exercise
+from src.evaluation.recursive_table7 import recursive_forecast_exercise
 
 # Data importation
 stat_xl = pd.read_excel(r'ORGA_TEST/data/stationnary_data.xlsx', index_col=0, parse_dates=True)

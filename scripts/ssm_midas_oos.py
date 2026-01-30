@@ -4,12 +4,12 @@ import numpy as np
 from typing import Dict
 from scipy.optimize import minimize
 
-from ORGA_TEST.src.ssm.params import OneFactorParams
-from ORGA_TEST.src.evaluation.model_selection import K_BAR, RICCATI_MAX_ITERS, OPT_TOL, D_GRID, RHO_GRID
-from ORGA_TEST.src.ssm.kalman_weights import kalman_weights_by_impulses, kalman_weights_by_impulses_multi_x
-from ORGA_TEST.src.midas.midas_fit import fit_regular_midas_to_kf_by_l2, fit_multiplicative_midas_to_kf_by_l2
-from ORGA_TEST.src.midas.midas_base import exp_almon_weights
-from ORGA_TEST.src.evaluation.table3_population import (
+from src.ssm.params import OneFactorParams
+from src.evaluation.model_selection import K_BAR, OPT_TOL, D_GRID, RHO_GRID
+from src.ssm.kalman_weights import kalman_weights_by_impulses, kalman_weights_by_impulses_multi_x
+from src.midas.midas_fit import fit_regular_midas_to_kf_by_l2, fit_multiplicative_midas_to_kf_by_l2
+from src.midas.midas_base import exp_almon_weights
+from src.evaluation.table3_population import (
     cov_one_or_two_factor_yx, sigma_matrix_for_upsilon, fit_regular_midas_by_pe_variance, ss1_best_pe_variance_under_true_sigma
 )
 

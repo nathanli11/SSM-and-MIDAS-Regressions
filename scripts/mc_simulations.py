@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
 
-from ORGA_TEST.src.ssm.forecast import (forecast_y_from_state, kalman_filter_forecast)
-from ORGA_TEST.src.ssm.periodic_kf import (periodic_steady_state_kf, run_periodic_kf_filter)
-from ORGA_TEST.src.midas.forecast import (regular_midas_forecast, multiplicative_midas_forecast)
-from ORGA_TEST.src.dgp.simulate import (simulate_one_factor_dgp, simulate_two_factor_dgp)
-from ORGA_TEST.src.evaluation.model_selection import (
+from src.ssm.forecast import (forecast_y_from_state, kalman_filter_forecast)
+from src.ssm.periodic_kf import (periodic_steady_state_kf, run_periodic_kf_filter)
+from src.midas.forecast import (regular_midas_forecast, multiplicative_midas_forecast)
+from src.dgp.simulate import (simulate_one_factor_dgp, simulate_two_factor_dgp)
+from src.evaluation.model_selection import (
     aic, bic, rmspe, kalman_ic_1f, kalman_ic_2f, RHO_GRID, D_GRID
     )
 
@@ -296,7 +296,7 @@ def generate_table_5(N: int = 500):
 
 
 def main():
-    repo = "ORGA_TEST/scripts/results/table_4_5/"
+    repo = "scripts/results/table_4_5/"
     tables_4A = generate_table_4A(N=500)
     tables_4A["Panel A (h=1) - Regular MIDAS"].to_excel(repo + "Table_4A_PanelA_MIDAS.xlsx")
     tables_4A["Panel A (h=1) - Multiplicative MIDAS"].to_excel(repo + "Table_4A_PanelA_Multiplicative_MIDAS.xlsx")

@@ -1,9 +1,11 @@
 import pandas as pd
-from ORGA_TEST.src.evaluation.data_management import import_data, log, dlog, extract_quarterly_gdp, quarterly_to_monthly_sparse_from_period
+from src.evaluation.data_management import (
+    import_data, log, dlog, extract_quarterly_gdp, quarterly_to_monthly_sparse_from_period
+)
 
 
 # Path du fichier de data brute
-file_path = r'ORGA_TEST/data/data_qg.xlsx'
+file_path = r'data/data.xlsx'
 
 # Noms des feuille du fichier excel
 sheet_names = [
@@ -32,7 +34,7 @@ X_stationnary["Exptn"] = X_stationnary["Exptn"].where(X_stationnary.index >= "19
 X_stationnary["Oil"]  = X_stationnary["Oil"].where(X_stationnary.index >= "1982-01-01")
 X_stationnary = X_stationnary[X_stationnary.index <= "2024-01-01"]
 # Export excel
-X_stationnary.to_excel(r'ORGA_TEST/data/stationnary_data.xlsx')
+X_stationnary.to_excel(r'data/stationnary_data.xlsx')
 
 # Creation de y_sparse
 gdp_q = extract_quarterly_gdp(data, col="GDP")
@@ -43,4 +45,4 @@ y_sparse = quarterly_to_monthly_sparse_from_period(gdp_q, final_data.index)
 # Gestion dates
 y_sparse = y_sparse[y_sparse.index <= "2024-01-01"]
 # Export excel
-y_sparse.to_excel(r'ORGA_TEST\data\y_sparse.xlsx')
+y_sparse.to_excel(r'data/y_sparse.xlsx')

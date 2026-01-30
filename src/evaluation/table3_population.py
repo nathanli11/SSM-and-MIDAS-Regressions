@@ -3,9 +3,9 @@ from typing import Tuple
 import math
 from scipy.optimize import minimize
 
-from ORGA_TEST.src.midas.midas_base import exp_almon_weights
-from ORGA_TEST.src.ssm.kalman_weights import kalman_weights_by_impulses
-from ORGA_TEST.src.ssm.params import OneFactorParams
+from src.midas.midas_base import exp_almon_weights
+from src.ssm.kalman_weights import kalman_weights_by_impulses
+from src.ssm.params import OneFactorParams
 from model_selection import OPT_TOL
 
 # -----------------------------

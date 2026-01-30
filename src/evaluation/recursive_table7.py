@@ -5,10 +5,10 @@ import pandas as pd
 from typing import Tuple
 
 from midas.adl_midas import ADLRegularMIDAS, ADLMultiplicativeMIDAS
-from ORGA_TEST.src.evaluation.data_management import (
+from src.evaluation.data_management import (
     quarter_end_months, quarter_second_month, normalize_full_sample)
-from ORGA_TEST.src.ssm.kalman_two_series import kalman_filter_states, fit_ssm_ml
-from ORGA_TEST.src.ssm.forecast import forecast_gdp_quarter_ssm
+from src.ssm.kalman_two_series import kalman_filter_states, fit_ssm_ml
+from src.ssm.forecast import forecast_gdp_quarter_ssm
 
 def recursive_rmse(
     y_q: pd.Series,

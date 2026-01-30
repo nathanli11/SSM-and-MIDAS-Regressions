@@ -6,9 +6,11 @@ from src.ssm.kalman_two_series import build_ssm_two_series_ar1_ml, fit_ssm_ml
 from src.evaluation.recursive_table7 import recursive_forecast_exercise, table7_rmse_grid
 
 # Output dir
-OUTDIR_RMSE = Path("scripts/results/table_7_8/results_rmse")
-OUTDIR_RMSE.mkdir(parents=True, exist_ok=True)
-OUTDIR_FORECAST = Path("scripts/results/table_7_8/results_forecast")
+OUTDIR_RMSE_KALMAN = Path("scripts/results/table_7_8/results_rmse_kalman_2024")
+OUTDIR_RMSE_KALMAN.mkdir(parents=True, exist_ok=True)
+OUTDIR_RMSE_MIDAS = Path("scripts/results/table_7_8/results_rmse_midas_2024")
+OUTDIR_RMSE_MIDAS.mkdir(parents=True, exist_ok=True)
+OUTDIR_FORECAST = Path("scripts/results/table_7_8")
 OUTDIR_FORECAST.mkdir(parents=True, exist_ok=True)
 
 # Data importation
@@ -18,13 +20,13 @@ y_parse = pd.read_excel(r"data/y_sparse.xlsx", index_col=0, parse_dates=True)
 series_names = stat_xl.columns.tolist()
 gdp_name = y_parse.columns[0]
 
-# GDP growth (quarter-end observations only)
+# GDP en croissance trimestrielle (différences premières des observations de fin de trimestre)
 gdp_diff_df = y_parse.dropna().diff()
 gdp_diff_df.columns = [gdp_name]
 
 final_data = stat_xl.merge(gdp_diff_df, left_index=True, right_index=True, how="left")
 
-# Quarterly GDP growth series for MIDAS (PeriodIndex Q)
+# GDP en croissance trimestrielle pour MIDAS
 y_q = gdp_diff_df[gdp_name].copy()
 y_q.index = pd.PeriodIndex(pd.to_datetime(y_q.index), freq="Q")
 y_q = y_q.sort_index().asfreq("Q")
@@ -93,7 +95,7 @@ for i in range(len(series_names)):
     )
 
     df_forecasts.to_excel(OUTDIR_FORECAST / f"forecast_ssm_{i}_{x_name}.xlsx", index=False)
-    rmse_ssm_by_h.to_excel(OUTDIR_RMSE / f"rmse_ssm_{i}_{x_name}.xlsx", index=False)
+    rmse_ssm_by_h.to_excel(OUTDIR_RMSE_KALMAN / f"rmse_ssm_{i}_{x_name}.xlsx", index=False)
 
     # -----------------------
     # 2) MIDAS
@@ -114,6 +116,6 @@ for i in range(len(series_names)):
         maxiter=3000,
     ).reset_index()
 
-    df_midas.to_csv(OUTDIR_RMSE / f"rmse_midas_{i}_{x_name}.csv", index=False)
+    df_midas.to_csv(OUTDIR_RMSE_MIDAS / f"rmse_midas_{i}_{x_name}.csv", index=False)
 
-print("\nDone. Results in:", OUTDIR_RMSE)
+print("\nDone. Results in:", OUTDIR_RMSE_MIDAS)

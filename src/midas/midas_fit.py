@@ -6,7 +6,7 @@ from src.midas.midas_base import exp_almon_weights
 from src.evaluation.model_selection import OPT_TOL
 
 # -----------------------------
-# MIDAS specifications (regular and multiplicative)
+# Specifications MIDAS (regular et multiplicative)
 # -----------------------------
 def midas_regular_coeffs(K_bar: int, m: int, theta_y: Tuple[float, float], theta_x: Tuple[float, float],
                         beta_y: float, beta_x: float) -> Tuple[np.ndarray, np.ndarray]:
@@ -36,7 +36,7 @@ def midas_multiplicative_coeffs(K_bar: int, m: int,
 
 
 # -----------------------------
-# Objectives for Tables 1–2: L2 distance between KF and MIDAS weights (Eq. 3.8)
+# Objectives pour les Tables 1–2: L2 distance entre les poids KF et MIDAS (Eq. 3.8)
 # -----------------------------
 def l2_distance_weights(wy_kf: np.ndarray, wx_kf: np.ndarray,
                         wy_m: np.ndarray, wx_m: np.ndarray) -> float:

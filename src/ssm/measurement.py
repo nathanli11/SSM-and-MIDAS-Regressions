@@ -39,4 +39,3 @@ def build_measurement_mats(p: OneFactorParams) -> Tuple[List[np.ndarray], List[n
     H_list.append(np.zeros((1 + n_x, 1 + n_x)))
 
     return Z_list, H_list
-

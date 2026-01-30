@@ -1,24 +1,39 @@
-ORGA_TEST/
+# SSM AND MIDAS REGRESSIONS
+
+## INSTALLATIONS
+- Dans un terminal, à la racine du projet, lancer la commande: "pip install -e ."
+- Les scripts pouvant être exécutés directement se trouvent dans le dossier scripts/
+
+## ORGANISATION DU CODE:
+
+SSM-AND-MIDAS-REGRESSIONS/
 ├─ data/
-│  ├─ data_gq.xlsx               # données brutes (source)
-│  ├─ stationary_data.xlsx       # données transformées (stationnaires + alignées)
-│  └─ y_sparse.xlsx              # version low-frequency / cible avec trous, etc.
+│  ├─ data.xlsx                        # données brutes (source)
+│  ├─ stationary_data.xlsx             # données transformées (stationnaires + alignées)
+│  └─ y_sparse.xlsx                    # version low-frequency / cible avec trous, etc.
 │
-├─ scripts/                      # “entry points” : scripts exécutables (pipeline, tables)
+├─ scripts/                            # “entry points” : scripts exécutables (pipeline, tables)
 │  └─ results/
 │     ├─ table_1_2_3/
-│     │  ├─ table1.txt           # outputs (papier) / logs / tables finales
+│     │  ├─ table1.txt                 # outputs (papier) / logs / tables finales
 │     │  ├─ table2.txt
 │     │  └─ table3.txt
 │     ├─ table_4_5/
-│     │  ├─ table_4_5.py         # script de reproduction tables 4-5
-│     │  └─ Table_4A_*.xlsx ...  # outputs détaillés par panel
-│     └─ table_7_8/
-│        ├─ table_7_8.py         # script principal table 7-8 (RMSE, forecasting)
-│        ├─ data_prep.py         # préparation des datasets pour table 7-8
-│        ├─ mc_simulations.py    # simulations Monte-Carlo (section 3/4)
-│        ├─ ssm_midas_forecast.py# exécutions forecasting (SSM + MIDAS)
-│        └─ ssm_midas_oos.py     # out-of-sample / recursive evaluation
+│     │  ├─ table_4_5.py               # script de print des tables 4-5 en LaTex
+│     │  └─ Table_4A_*.xlsx ...        # outputs détaillés par panel
+│     ├─ table_7_8/
+|     │   ├─ results_rmse_kalman_2024/
+|     │   |   └─ rmse_kalman_*.xlsx    # outputs rmse kalman par regressor
+|     │   ├─ results_rmse_midas_2024/
+|     │   |   └─ rmse_midas_*.csv      # outputs rmse midas (regular et multiplicative) par regressor
+|     │   ├─ forecast _*.xlsx          # outputs forecasts kalman par regressor
+│     │   ├─ table_7_8.py              # script principal table 7-8 (RMSE, forecasting)
+│     │   ├─ table_*_final_2024.csv    # output csv des données pour les tableaux 7 et 8 (RMSE, forecasting, Kalman + MIDAS)
+│     │   └─ table_*_final_2024.tex    # output LaTex
+│     ├─ data_prep.py                  # préparation des datasets pour table 7-8
+│     ├─ mc_simulations.py             # simulations Monte-Carlo (sections 3/4)
+│     ├─ ssm_midas_rmse.py             # exécutions forecasting & RMSE (SSM + MIDAS)
+│     └─ ssm_midas_oos.py              # out-of-sample / recursive evaluation
 │
 └─ src/                          # code “librairie” réutilisable (importable + testable)
    ├─ dgp/

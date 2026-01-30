@@ -3,7 +3,7 @@ from src.ssm.likelihood import kalman_loglike_full, kalman_loglike_2f, fit_kalma
 from src.ssm.params import OneFactorParams, TwoFactorParams
 
 # ----------------------------------------------------
-# GRID as in the paper
+# GRID issus du papier
 # ----------------------------------------------------
 RHO_GRID = [-0.9, -0.5, 0.5, 0.95]
 D_GRID   = [-0.9, -0.5, 0.0, 0.5, 0.95]
@@ -11,8 +11,8 @@ D_GRID   = [-0.9, -0.5, 0.0, 0.5, 0.95]
 RICCATI_MAX_ITERS = 50_000
 RICCATI_TOL = 1e-12
 
-K_BAR = 40                 # lag truncation K̄ used in Eqs (3.4)-(3.5) and Appendix weight vectors
-KF_WARMUP_PERIODS = 400    # warmup in low-freq periods when extracting impulse-response weights
+K_BAR = 40                 # troncature lag utilisée dans les Eqs (3.4)-(3.5) et Appendix vecteurs de poids
+KF_WARMUP_PERIODS = 400    # échauffement périodes basse-fréquence pour extraction des poids avec impulse-response
 OPT_TOL = 1e-10
 
 def gaussian_loglike(residuals):

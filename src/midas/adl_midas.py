@@ -10,10 +10,11 @@ from src.midas.midas_base import MixedFreqIndexer, exp_almon_weights, ols, MIDAS
 class ADLRegularMIDAS:
     """Regular ADL-MIDAS (m1).
 
-    Paper-aligned design (monthly→quarterly; info set: j_obs=2 for m=3):
+    Spécification alignée sur le papier (mensuel -> trimestriel ; ensemble d'information :
+    j_obs=2 pour m=3) :
       y_{t+h} = c + phi*y_t + beta * (sum_{k=1..(m*Kx)} w_k(theta_x) x_{t,cut-k+1}) + e_{t+h}
 
-    Defaults: Ky=1 via y_t, Kx_LF up to 6, m=3, j_obs=2.
+    Par défaut : Ky=1 via y_t, Kx_LF jusqu'à 6, m=3, j_obs=2
     """
 
     def __init__(self, Kx_LF: int = 6, m: int = 3, j_obs: int = 2, include_intercept: bool = True):
@@ -29,7 +30,7 @@ class ADLRegularMIDAS:
         y_q = self.idx.ensure_quarterly_period(y_q)
         df = self.idx.monthly_panel(x_m)
 
-        # Use only (t, t+h) pairs available by origin (paper: expanding window).
+        # Que les couples (t, t+h) disponibles à la date origin (fenêtre d'estimation croissante)
         limit = origin - int(h)
         metas = [t for t in y_q.index if (t <= limit) and ((t + h) in y_q.index)]
 
@@ -46,7 +47,7 @@ class ADLRegularMIDAS:
             Xlags.append(xlags)
 
         if len(Y) == 0:
-            raise ValueError("No usable training observations.")
+            raise ValueError("Aucune observation exploitable pour l’entraînement")
         return np.asarray(Y, float), np.asarray(ylag, float), np.asarray(Xlags, float), df
 
     def fit(self, y_q: pd.Series, x_m: pd.Series, h: int, origin: pd.Period,
@@ -95,11 +96,11 @@ class ADLRegularMIDAS:
 
     def predict_one(self, y_q: pd.Series, x_m: pd.Series, origin: pd.Period) -> float:
         if self.fit_ is None:
-            raise ValueError("Model is not fitted.")
+            raise ValueError("Le modèle n'a pas été estimé")
         y_q = self.idx.ensure_quarterly_period(y_q)
         df = self.idx.monthly_panel(x_m)
 
-        ylag = float(y_q.loc[origin]) # type: ignore
+        ylag = float(y_q.loc[origin])
         xlags = self.idx.stacked_hf_lags(df, t=origin, j_obs=self.j_obs, Kx_LF=self.Kx_LF)
         w = exp_almon_weights(len(xlags), float(self.fit_.theta[0]), float(self.fit_.theta[1]))
         z = float(xlags @ w)
@@ -111,17 +112,16 @@ class ADLRegularMIDAS:
             phi, beta = self.fit_.coef[0], self.fit_.coef[1]
             return float(phi*ylag + beta*z)
 
-
 class ADLMultiplicativeMIDAS:
-    """Multiplicative ADL-MIDAS (m2), paper Eq. (2.25)-(2.26).
+    """Multiplicative ADL-MIDAS (m2), Eq. (2.25)-(2.26).
 
-    Design:
-      x_agg(t; theta_in)  = sum_{k=1..K_intra} w_k(theta_in) x_{t,k}   (intra-quarter)
+    Spécification :
+      x_agg(t; theta_in)  = sum_{k=1..K_intra} w_k(theta_in) x_{t,k}   (intra-trimestre)
       z_x(t; theta_out)   = sum_{j=0..Kx} w_j(theta_out) x_agg(t-j)
       y_{t+h}             = c + phi*y_t + beta*z_x(t) + e_{t+h}
 
-    For monthly data:
-      m=3, j_obs=2 => K_intra=2 (months available inside quarter at the forecast origin).
+    Pour des données mensuelles :
+      m=3, j_obs=2 ⇒ K_intra=2 (mois disponibles dans le trimestre à la date de prévision)
     """
 
     def __init__(self, Kx_LF: int = 6, m: int = 3, j_obs: int = 2, include_intercept: bool = True):
@@ -150,7 +150,7 @@ class ADLMultiplicativeMIDAS:
             try:
                 blocks = []
                 for j in range(0, self.Kx_LF + 1):
-                    block = self.idx.intra_block(df, t=t - j, j_obs=self.j_obs)  # recent→old
+                    block = self.idx.intra_block(df, t=t - j, j_obs=self.j_obs)  # recent -> vieux
                     blocks.append(block)
             except Exception:
                 continue
@@ -159,7 +159,7 @@ class ADLMultiplicativeMIDAS:
             if Kintra is None:
                 Kintra = min(lens)
             if any(l != Kintra for l in lens):
-                # missing monthly obs => skip (paper datasets are usually complete after 1959)
+                # Obs mensuelles manquantes => on saute (dans le papier, les séries sont complètes après 1959)
                 continue
 
             Y.append(float(y_q.loc[t + h]))
@@ -167,7 +167,7 @@ class ADLMultiplicativeMIDAS:
             X_intra.append(np.stack(blocks, axis=0))  # (Kx+1, Kintra)
 
         if len(Y) == 0:
-            raise ValueError("No usable training observations.")
+            raise ValueError("Aucune observation exploitable pour l'entraînement")
         return np.asarray(Y, float), np.asarray(ylag, float), np.asarray(X_intra, float), df
 
     def fit(self, y_q: pd.Series, x_m: pd.Series, h: int, origin: pd.Period,
@@ -226,11 +226,11 @@ class ADLMultiplicativeMIDAS:
 
     def predict_one(self, y_q: pd.Series, x_m: pd.Series, origin: pd.Period) -> float:
         if self.fit_ is None:
-            raise ValueError("Model is not fitted.")
+            raise ValueError("Le modèle n'a pas été estimé")
         y_q = self.idx.ensure_quarterly_period(y_q)
         df = self.idx.monthly_panel(x_m)
 
-        ylag = float(y_q.loc[origin]) # type: ignore
+        ylag = float(y_q.loc[origin]) 
 
         # Build blocks for j=0..Kx
         blocks = []
@@ -240,7 +240,7 @@ class ADLMultiplicativeMIDAS:
 
         Kintra = len(blocks[0])
         if any(len(b) != Kintra for b in blocks):
-            raise ValueError("Inconsistent intra-quarter blocks (missing HF months?).")
+            raise ValueError("Blocs intra-trimestriels incohérents (mois HF manquants ?)")
 
         X_intra = np.stack(blocks, axis=0)  # (Kx+1, Kintra)
 

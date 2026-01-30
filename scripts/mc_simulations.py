@@ -321,21 +321,21 @@ def generate_table_5(N: int = 500):
 
 def main():
     repo = "scripts/results/table_4_5/"
-    tables_4A = generate_table_4A(N=500)
+    tables_4A = generate_table_4A(N=1)
     tables_4A["Panel A (h=1) - Regular MIDAS"].to_excel(repo + "Table_4A_PanelA_MIDAS.xlsx")
     tables_4A["Panel A (h=1) - Multiplicative MIDAS"].to_excel(repo + "Table_4A_PanelA_Multiplicative_MIDAS.xlsx")
     tables_4A["Panel B (h=4) - Regular MIDAS"].to_excel(repo + "Table_4A_PanelB_MIDAS.xlsx")
     tables_4A["Panel B (h=4) - Multiplicative MIDAS"].to_excel(repo + "Table_4A_PanelB_Multiplicative_MIDAS.xlsx")
 
 
-    tables_4B = generate_table_4B(N=500)
+    tables_4B = generate_table_4B(N=1)
     tables_4B["Panel C (h=1) - Regular MIDAS"].to_excel(repo + "Table_4B_PanelC_MIDAS.xlsx")
     tables_4B["Panel C (h=1) - Multiplicative MIDAS"].to_excel(repo + "Table_4B_PanelC_Multiplicative_MIDAS.xlsx")
     tables_4B["Panel D (h=4) - Regular MIDAS"].to_excel(repo + "Table_4B_PanelD_MIDAS.xlsx")
     tables_4B["Panel D (h=4) - Multiplicative MIDAS"].to_excel(repo + "Table_4B_PanelD_Multiplicative_MIDAS.xlsx")
 
 
-    tables_5 = generate_table_5(N=500)
+    tables_5 = generate_table_5(N=1)
     tables_5["Panel A (AIC, h=1) - Regular MIDAS"].to_excel(repo + "Table_5_PanelA_MIDAS.xlsx")
     tables_5["Panel A (AIC, h=1) - Multiplicative MIDAS"].to_excel(repo + "Table_5_PanelA_Multiplicative_MIDAS.xlsx")
     tables_5["Panel B (BIC, h=1) - Regular MIDAS"].to_excel(repo + "Table_5_PanelB_MIDAS.xlsx")

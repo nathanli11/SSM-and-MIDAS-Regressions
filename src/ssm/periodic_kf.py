@@ -35,8 +35,6 @@ class PeriodicKF:
         return np.diag([p.sig2_f, p.sig2_uy] + list(p.sig2_ux))
 
 
-
-
 def periodic_steady_state_kf(p: OneFactorParams) -> PeriodicKF:
     """
     Variance P_{j|j-1} et gains K_{j|j-1} périodiques en régime permanent via itération de Riccati (Eq. 2.8).

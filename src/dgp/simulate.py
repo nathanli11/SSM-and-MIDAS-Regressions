@@ -1,5 +1,6 @@
 import numpy as np
 
+""" Simulation des données depuis DGP avec un ou deux facteurs latents (pour Monte Carlo). """
 
 def simulate_one_factor_dgp(T=40, m=3, rho=0.9, d=0.5, seed=None):
     if seed is not None:

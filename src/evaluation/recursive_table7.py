@@ -24,22 +24,24 @@ def recursive_rmse(
     warm_start: bool = True,
     maxiter: int = 3000,
 ) -> Tuple[float, int]:
-    """Compute expanding-window RMSE for a single regressor and horizon.
+    """Calcule le RMSE en fenêtre croissante (expanding window)
+    pour un seul régresseur et un horizon donné.
 
-    Paper settings (Table 7):
-      - initial estimation sample ends 1978Q4
-      - evaluation 1979Q1..2009Q1
-      - horizons h=1..8
-      - info set: monthly data available up to 2nd month of quarter (j_obs=2)
+    Paramétrage du papier (Tableau 7) :
+      - l'échantillon initial d'estimation se termine en 1978Q4
+      - période d'évaluation : 1979Q1-2009Q1
+      - horizons h = 1..8
+      - ensemble d'information : données mensuelles disponibles
+        jusqu'au 2e mois du trimestre (j_obs = 2)
     """
     y_q = y_q.copy()
     if not isinstance(y_q.index, pd.PeriodIndex):
         y_q.index = pd.PeriodIndex(pd.to_datetime(y_q.index), freq="Q")
     y_q = y_q.sort_index().asfreq("Q")
 
-    train_end0 = pd.Period(train_end0, freq="Q") # type: ignore
-    eval_start = pd.Period(eval_start, freq="Q") # type: ignore
-    eval_end = pd.Period(eval_end, freq="Q") # type: ignore
+    train_end0 = pd.Period(train_end0, freq="Q")
+    eval_start = pd.Period(eval_start, freq="Q")
+    eval_end = pd.Period(eval_end, freq="Q")
 
     if model == "regular":
         M = ADLRegularMIDAS(Kx_LF=Kx_LF, m=m, j_obs=j_obs, include_intercept=True)
@@ -54,14 +56,22 @@ def recursive_rmse(
 
     for target in pd.period_range(eval_start, eval_end, freq="Q"):
         origin = target - int(h)
-        if origin < train_end0: # type: ignore
+        if origin < train_end0:
             continue
-        if target not in y_q.index or pd.isna(y_q.loc[target]): # type: ignore
+        if target not in y_q.index or pd.isna(y_q.loc[target]):
             continue
 
-        # expanding window: fit using data available up to origin (y up to origin; x handled by j_obs inside the model)
+        # fenêtre croissante : estimation avec les données disponibles jusqu'à origin
+        # (y jusqu'à origin ; x est géré via j_obs à l'intérieur du modèle)
         if model == "regular":
-            fit = M.fit(y_q=y_q[y_q.index <= origin], x_m=x_m, h=h, origin=origin, theta_init=theta_init, maxiter=maxiter) # type: ignore
+            fit = M.fit(
+                y_q=y_q[y_q.index <= origin],
+                x_m=x_m,
+                h=h,
+                origin=origin,
+                theta_init=theta_init,
+                maxiter=maxiter,
+            )
             yhat = M.predict_one(y_q=y_q, x_m=x_m, origin=origin)
             if warm_start:
                 theta_init = (float(fit.theta[0]), float(fit.theta[1]))
@@ -71,21 +81,26 @@ def recursive_rmse(
                 x_m=x_m,
                 h=h,
                 origin=origin,
-                theta_out_init=(theta_init[0], theta_init[1]), # type: ignore
-                theta_in_init=(theta_init[2], theta_init[3]), # type: ignore
-                maxiter=maxiter,
+                theta_out_init=(theta_init[0], theta_init[1]),
+                theta_in_init=(theta_init[2], theta_init[3]),
             )
             yhat = M.predict_one(y_q=y_q, x_m=x_m, origin=origin)
             if warm_start:
-                theta_init = (float(fit.theta[0]), float(fit.theta[1]), float(fit.theta[2]), float(fit.theta[3]))
+                theta_init = (
+                    float(fit.theta[0]),
+                    float(fit.theta[1]),
+                    float(fit.theta[2]),
+                    float(fit.theta[3]),
+                )
 
         preds.append(float(yhat))
-        actual.append(float(y_q.loc[target])) # type: ignore
+        actual.append(float(y_q.loc[target]))
 
     preds = np.asarray(preds, float)
     actual = np.asarray(actual, float)
     rmse = float(np.sqrt(np.mean((preds - actual) ** 2)))
     return rmse, int(len(preds))
+
 
 def table7_rmse_grid(
     y_q: pd.Series,
@@ -94,7 +109,7 @@ def table7_rmse_grid(
     regressors=None,
     **kwargs,
 ) -> pd.DataFrame:
-    """Return a DataFrame with MultiIndex (regressor, h) and RMSE columns."""
+    """Retourne un DataFrame avec MultiIndex (regressor, h) et RMSE en colonne"""
     if regressors is None:
         regressors = list(X.columns)
 
@@ -111,7 +126,6 @@ def table7_rmse_grid(
 
 
 # Previsions récursives SSM avec Kalman
-
 def recursive_forecast_exercise(gdp_q_col : pd.DataFrame,
                                 x_m_col : pd.DataFrame,
                                 start_est_q: str,

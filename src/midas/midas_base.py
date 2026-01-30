@@ -9,7 +9,7 @@ from typing import Dict, Any
 class MIDASFit:
     params: Dict[str, Any]
     coef: np.ndarray          # [c, phi, beta]
-    theta: np.ndarray         # MIDAS shape params (length depends on model)
+    theta: np.ndarray         # Paramètres de forme MIDAS (longueur dépend du modèle)
     success: bool
     message: str
 
@@ -36,24 +36,22 @@ def exp_almon_weights(K: int, theta1: float, theta2: float) -> np.ndarray:
     return a / s
 
 def ols(y: np.ndarray, X: np.ndarray) -> np.ndarray:
-    """OLS coefficients b solving min ||y - Xb||^2."""
+    """Coefficients OLS b (solution de min ||y - Xb||^2)"""
     y = np.asarray(y, float).reshape(-1, 1)
     X = np.asarray(X, float)
     b, *_ = np.linalg.lstsq(X, y, rcond=None)
     return b.reshape(-1)
 
 class MixedFreqIndexer:
-    """Monthly → quarterly indexing helpers.
+    """mensuel -> trimestriel (indexing helpers)
 
-    Designed to reproduce information set such that:
-      - quarterly y_t (PeriodIndex 'Q')
-      - monthly x_t (DatetimeIndex / PeriodIndex 'M')
-      - at quarterly origin t, only months up to j_obs are observable (paper uses 2nd month => j_obs=2 for m=3).
+    Construit un vecteur de poids de longueur K+1 à partir des paramètres
+    (theta1, theta2), normalisé pour sommer à 1
     """
 
     def __init__(self, m: int = 3):
         if m < 1:
-            raise ValueError("m must be >= 1")
+            raise ValueError("m doit être >= 1")
         self.m = int(m)
 
     @staticmethod
@@ -70,14 +68,14 @@ class MixedFreqIndexer:
         x = x.dropna().sort_index()
         if isinstance(x.index, pd.PeriodIndex):
             x = x.copy()
-            x.index = x.index.to_timestamp(how="start") # type: ignore
+            x.index = x.index.to_timestamp(how="start") 
         if not isinstance(x.index, pd.DatetimeIndex):
             x = x.copy()
             x.index = pd.to_datetime(x.index)
         return x
 
     def monthly_panel(self, x: pd.Series) -> pd.DataFrame:
-        """Return a DataFrame with columns: x, q (quarter Period), j (1..n within quarter)."""
+        """Renvoie un DataFrame avec colonnes: x, q (quarter Period), j (1..n dans le trimestre)."""
         x = self.ensure_monthly_datetime(x)
         df = pd.DataFrame({"x": x})
         idx = pd.DatetimeIndex(df.index)
@@ -86,41 +84,41 @@ class MixedFreqIndexer:
         return df
 
     def stacked_hf_lags(self, df: pd.DataFrame, t: pd.Period, j_obs: int, Kx_LF: int) -> np.ndarray:
-        """Regular MIDAS stacked lags: length Kx_HF = m*Kx_LF, ordered recent→old."""
+        """Regular MIDAS lags empilés: taille Kx_HF = m*Kx_LF, par ordre recent -> vieux"""
         Kx_HF = self.m * int(Kx_LF)
 
         g = df[df["q"] == t]
         if g.empty:
-            raise ValueError(f"No HF data in quarter {t}")
+            raise ValueError(f"Pas de données HF dans le trimestre {t}")
         n_t = int(g["j"].max())
         j_cut = min(int(j_obs), n_t)
 
         pos = np.flatnonzero(((df["q"] == t) & (df["j"] == j_cut)).to_numpy())
         if pos.size == 0:
-            raise ValueError(f"Cannot locate (t={t}, j={j_cut}) in HF panel")
+            raise ValueError(f"Impossible de localiser (t={t}, j={j_cut}) dans le panel HF")
 
         cut_pos = int(pos[0])
         start = cut_pos - (Kx_HF - 1)
         if start < 0:
-            raise ValueError(f"Not enough HF history for {t}: need {Kx_HF} HF obs")
+            raise ValueError(f"Pas assez d'observations HF pour {t}: besoin de {Kx_HF} observations HF")
 
-        block = df["x"].iloc[start:cut_pos + 1].to_numpy(dtype=float)  # old→recent
+        block = df["x"].iloc[start:cut_pos + 1].to_numpy(dtype=float)  # vieux -> recent
         if np.isnan(block).any():
-            raise ValueError("NaNs in stacked lags")
-        return block[::-1]  # recent→old
+            raise ValueError("NaNs dans les lags empilés")
+        return block[::-1]  # recent -> vieux
 
     def intra_block(self, df: pd.DataFrame, t: pd.Period, j_obs: int) -> np.ndarray:
-        """Multiplicative MIDAS intra-quarter block (months 1..j_cut), ordered recent→old."""
+        """Multiplicative MIDAS bloc intra-trimestriel (mois 1..j_cut), trié par recent -> vieux"""
         g = df[df["q"] == t]
         if g.empty:
-            raise ValueError(f"No HF data in quarter {t}")
+            raise ValueError(f"Pas de données HF dans le trimestre {t}")
         n_t = int(g["j"].max())
         j_cut = min(int(j_obs), n_t)
 
-        block = g[g["j"] <= j_cut]["x"].to_numpy(dtype=float)  # old→recent
+        block = g[g["j"] <= j_cut]["x"].to_numpy(dtype=float)  # vieux -> recent
         if np.isnan(block).any():
-            raise ValueError("NaNs in intra block")
-        return block[::-1]  # recent→old
+            raise ValueError("NaNs dans le bloc intra-trimestriel")
+        return block[::-1]  # recent -> vieux
 
 def hf_lag_at_low_t(x: np.ndarray, t: int, m: int, lag_hf: int) -> float:
     

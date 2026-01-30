@@ -214,7 +214,7 @@ def main():
     print("Computing Table 1...")
     t1 = table1()
 
-    out_txt = "table1.txt"
+    out_txt = "scripts/results/table_1_2_3/table1.txt"
     with open(out_txt, "w", encoding="utf-8") as f:
 
         # -------- TABLE 1 ----------
@@ -227,7 +227,7 @@ def main():
     print("\nComputing Table 2...")
     t2 = table2()
 
-    out_txt = "table2.txt"
+    out_txt = "scripts/results/table_1_2_3/table2.txt"
 
     with open(out_txt, "w", encoding="utf-8") as f:
 
@@ -242,7 +242,7 @@ def main():
     print("\nComputing Table 3...")
     t3 = table3()
 
-    out_txt = "table3.txt"
+    out_txt = "scripts/results/table_1_2_3/table3.txt"
 
     with open(out_txt, "w", encoding="utf-8") as f:
 

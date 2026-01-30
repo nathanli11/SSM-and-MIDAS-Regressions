@@ -69,24 +69,24 @@ latex_panel_B = panel_B.to_latex(
 print(latex_panel_B)
 
 
-panel_A_h1_midas = pd.read_excel("Table_5_PanelA_MIDAS.xlsx", index_col=0)
-panel_A_h1_adl = pd.read_excel("Table_5_PanelA_Multiplicative_MIDAS.xlsx", index_col=0)
+panel_A_midas = pd.read_excel("Table_5_PanelA_MIDAS.xlsx", index_col=0)
+panel_A_adl = pd.read_excel("Table_5_PanelA_Multiplicative_MIDAS.xlsx", index_col=0)
 
-panel_B_h4_midas = pd.read_excel("Table_5_PanelB_MIDAS.xlsx", index_col=0)
-panel_B_h4_adl = pd.read_excel("Table_5_PanelB_Multiplicative_MIDAS.xlsx", index_col=0)
+panel_B_midas = pd.read_excel("Table_5_PanelB_MIDAS.xlsx", index_col=0)
+panel_B_adl = pd.read_excel("Table_5_PanelB_Multiplicative_MIDAS.xlsx", index_col=0)
 
-panel_C_h1_midas = pd.read_excel("Table_5_PanelC_MIDAS.xlsx", index_col=0)
-panel_C_h1_adl = pd.read_excel("Table_5_PanelC_Multiplicative_MIDAS.xlsx", index_col=0)
+panel_C_midas = pd.read_excel("Table_5_PanelC_MIDAS.xlsx", index_col=0)
+panel_C_adl = pd.read_excel("Table_5_PanelC_Multiplicative_MIDAS.xlsx", index_col=0)
 
-panel_D_h4_midas = pd.read_excel("Table_5_PanelD_MIDAS.xlsx", index_col=0)
-panel_D_h4_adl = pd.read_excel("Table_5_PanelD_Multiplicative_MIDAS.xlsx", index_col=0)
+panel_D_midas = pd.read_excel("Table_5_PanelD_MIDAS.xlsx", index_col=0)
+panel_D_adl = pd.read_excel("Table_5_PanelD_Multiplicative_MIDAS.xlsx", index_col=0)
 
 panel_C = pd.concat(
     [
-        panel_A_h1_midas,  
-        panel_A_h1_adl,
-        panel_B_h4_midas,
-        panel_B_h4_adl
+        panel_A_midas,  
+        panel_A_adl,
+        panel_B_midas,
+        panel_B_adl
     ],
     axis=1,
     keys=[
@@ -108,10 +108,10 @@ print(latex_panel_c)
 
 panel_D = pd.concat(
     [
-        panel_C_h1_midas,  
-        panel_C_h1_adl,
-        panel_D_h4_midas,
-        panel_D_h4_adl
+        panel_C_midas,  
+        panel_C_adl,
+        panel_D_midas,
+        panel_D_adl
     ],
     axis=1,
     keys=[

@@ -99,8 +99,8 @@ class OneFactorParams:
             sig2_ux=np.asarray(sig2_ux, dtype=float),
         )
 
-"""
-@dataclass
+#Paramètres du *SSM 2 facteurs* (pour KF / loglike / estimation).
+@dataclass(frozen=True)
 class TwoFactorParams:
     m: int = 3
     n_x: int = 1
@@ -118,13 +118,13 @@ class TwoFactorParams:
     def dim_state(self):
         # [f1, f2, u_y, u_x]
         return 4
-"""
 
+"""
 @dataclass(frozen=True)
 class TwoFactorParams:
-    """
+    
     Paramètres du *SSM 2 facteurs* (pour KF / loglike / estimation).
-    """
+    
     m: int = 3
     rho1: float = 0.9
     rho2: float = 0.3
@@ -144,7 +144,7 @@ class TwoFactorParams:
     def dim_state(self) -> int:
         # exemple générique: [f1, f2, u_y, u_x1, ..., u_xn]
         return 3 + self.n_x
-
+"""
 
 @dataclass(frozen=True)
 class TwoFactorDGPParams:

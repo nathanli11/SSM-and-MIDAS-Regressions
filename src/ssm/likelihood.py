@@ -94,48 +94,58 @@ def kalman_loglike_full(p: OneFactorParams, y: np.ndarray, x: np.ndarray) -> flo
     return float(ll)
 
 def kalman_loglike_2f(p: TwoFactorParams, y, x):
-    '''Calcule la log vraisemblance d un SSM a deux facteurs latents
-    avec Kalman
-    '''
+    '''Calcule la log vraimensemblance pour 2 facteurs'''
     m = p.m
     T_low = len(y)
     T_high = T_low * m
 
-    # Matrice de transition de l etat
     G = np.diag([p.rho1, p.rho2, p.d, p.d])
-    # Variance des innovations
     Q = np.diag([p.sig2_f1, p.sig2_f2, p.sig2_uy, p.sig2_ux])
 
-    # Init
     a = np.zeros(4)
-    P = np.eye(4) * 10
+    P = np.eye(4) * 10.0
     ll = 0.0
     low_idx = 0
+    two_pi = np.log(2.0*np.pi)
 
-    # Boucle sur les periodes HF
     for t in range(T_high):
         j = (t % m) + 1
+
+        # predict
         a = G @ a
         P = G @ P @ G.T + Q
 
+        # measurement
         if j < m:
-            # x = f1 + u_x
-            Z = np.array([[1, 0, 0, 1]])   
+            Z = np.array([[1, 0, 0, 1]])
             y_obs = np.array([x[t, 0]])
         else:
-            # y = f1 + f2 + u_y
-            # x
-            Z = np.array([
-                [1, 1, 1, 0],             
-                [1, 0, 0, 1]              
-            ])
+            Z = np.array([[1, 1, 1, 0],
+                          [1, 0, 0, 1]])
             y_obs = np.array([y[low_idx], x[t, 0]])
             low_idx += 1
 
         v = y_obs - Z @ a
-        S = Z @ P @ Z.T
-        ll += -0.5 * (np.log(np.linalg.det(S)) + v.T @ np.linalg.solve(S, v))
-        K = P @ Z.T @ np.linalg.inv(S)
+        S = Z @ P @ Z.T  # H=0 ici
+
+        try:
+            L = np.linalg.cholesky(S)
+        except np.linalg.LinAlgError:
+            return -np.inf
+
+        tmp = np.linalg.solve(L, v)
+        Sinv_v = np.linalg.solve(L.T, tmp)
+        quad = float(v.T @ Sinv_v)
+        logdet = 2.0*np.sum(np.log(np.diag(L)))
+        k = len(y_obs)
+
+        ll += -0.5*(logdet + quad + k*two_pi)
+
+        # update
+        PZt = P @ Z.T
+        W = np.linalg.solve(L, PZt.T)
+        U = np.linalg.solve(L.T, W)
+        K = U.T
         a = a + K @ v
         P = P - K @ Z @ P
 
@@ -197,3 +207,41 @@ def fit_kalman_mle(y: np.ndarray, x: np.ndarray, m=3) -> OneFactorParams:
         sig2_uy=sig2_uy,
         sig2_ux=sig2_ux
     )
+
+def fit_kalman_mle_2f(y: np.ndarray, x: np.ndarray, m=3) -> TwoFactorParams:
+    def neg_ll(theta):
+        eps = 1e-8
+        rho1 = np.tanh(theta[0])
+        rho2 = np.tanh(theta[1])
+        d    = np.tanh(theta[2])
+
+        sig2_f1 = np.exp(theta[3]) + eps
+        sig2_f2 = np.exp(theta[4]) + eps
+        sig2_uy = np.exp(theta[5]) + eps
+        sig2_ux = np.exp(theta[6]) + eps
+
+        p = TwoFactorParams(
+            m=m, rho1=rho1, rho2=rho2, d=d,
+            sig2_f1=sig2_f1, sig2_f2=sig2_f2,
+            sig2_uy=sig2_uy, sig2_ux=sig2_ux
+        )
+        return -kalman_loglike_2f(p, y, x)
+
+    theta0 = np.array([
+        np.arctanh(0.5), np.arctanh(0.2), np.arctanh(0.1),
+        np.log(1.0), np.log(1.0), np.log(1.0), np.log(1.0)
+    ])
+
+    res = minimize(neg_ll, theta0, method="L-BFGS-B")
+
+    return TwoFactorParams(
+        m=m,
+        rho1=np.tanh(res.x[0]),
+        rho2=np.tanh(res.x[1]),
+        d=np.tanh(res.x[2]),
+        sig2_f1=np.exp(res.x[3]),
+        sig2_f2=np.exp(res.x[4]),
+        sig2_uy=np.exp(res.x[5]),
+        sig2_ux=np.exp(res.x[6]),
+    )
+

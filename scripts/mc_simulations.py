@@ -1,10 +1,18 @@
 import numpy as np
 import pandas as pd
 
-from src.ssm.forecast import (forecast_y_from_state, kalman_filter_forecast)
-from src.ssm.periodic_kf import (periodic_steady_state_kf, run_periodic_kf_filter)
-from src.midas.forecast import (regular_midas_forecast, multiplicative_midas_forecast)
-from src.dgp.simulate import (simulate_one_factor_dgp, simulate_two_factor_dgp)
+from src.ssm.forecast import (
+    forecast_y_from_state, kalman_filter_forecast, forecast_y_from_state_2f
+)
+from src.ssm.periodic_kf import (
+    periodic_steady_state_kf, run_periodic_kf_filter, periodic_steady_state_kf_2f, run_periodic_kf_filter_2f
+)
+from src.midas.forecast import (
+    regular_midas_forecast, multiplicative_midas_forecast
+)
+from src.dgp.simulate import (
+    simulate_one_factor_dgp, simulate_two_factor_dgp
+)
 from src.evaluation.model_selection import (
     aic, bic, rmspe, kalman_ic_1f, kalman_ic_2f, RHO_GRID, D_GRID
     )
@@ -186,10 +194,10 @@ def monte_carlo_simulation_3(
     rmspe_midas = []
     rmspe_adl = []
 
+    n2 = 0
     for i in range(N):
-        y, x, _ = simulate_one_factor_dgp(
-            T=T, m=m, rho=rho, d=d, seed=i
-        )
+        # DGP : 1 facteur
+        y, x, _ = simulate_one_factor_dgp(T=T, m=m, rho=rho, d=d, seed=i)
 
         # MIDAS
         f_m, a_m = regular_midas_forecast(y, x, h=h, m=m)
@@ -207,23 +215,39 @@ def monte_carlo_simulation_3(
             ic1 = aic(ll1, k1)
             ic2 = aic(ll2, k2)
         else:
-            ic1 = bic(ll1, k1, T)
-            ic2 = bic(ll2, k2, T)
+            ic1 = bic(ll1, k1, T_low=len(y), m=m, n_x=x.shape[1])
+            ic2 = bic(ll2, k2, T_low=len(y), m=m, n_x=x.shape[1])
 
-        # Le papier produit toujours le modèle 1 facteur
-        # on suit cette convention ici
-        p_hat = p1 
-        kf = periodic_steady_state_kf(p_hat)
-        _, states_low = run_periodic_kf_filter(kf, y, x)
 
+        if ic1 <= ic2:
+            model_type = "1f"
+            p_hat = p1
+            kf = periodic_steady_state_kf(p_hat)
+            _, states_low = run_periodic_kf_filter(kf, y, x)
+
+        else:
+            model_type = "2f"
+            p_hat = p2
+            kf = periodic_steady_state_kf_2f(p_hat)
+            states_low = run_periodic_kf_filter_2f(kf, y, x)
+            n2 += 1
+
+        # Prévisions
         fcast = []
         actual = []
+
         for t in range(len(y) - h):
-            fcast.append(forecast_y_from_state(p_hat, states_low[t], h))
+
+            if model_type =="1f":
+                fcast.append(forecast_y_from_state(p_hat, states_low[t], h))
+            else:
+                # Prevision 2 facteurs
+                fcast.append(forecast_y_from_state_2f(p_hat, states_low[t], h))
+            
             actual.append(y[t + h])
 
         rmspe_kf.append(rmspe(np.array(fcast), np.array(actual)))
-
+    print("share 2-factor selected =", n2/N)
     return {
         "KF / MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_midas),
         "KF / ADL-MIDAS": np.mean(rmspe_kf) / np.mean(rmspe_adl),

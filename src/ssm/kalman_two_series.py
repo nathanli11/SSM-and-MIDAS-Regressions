@@ -123,84 +123,6 @@ def fit_ssm_ml(df_hf, names):
     rho, d1, d2, g1, g2, s1, s2 = unpack(res.x)
     return {"rho": rho, "d1": d1, "d2": d2, "gamma1": g1, "gamma2": g2, "sig2_u1": s1, "sig2_u2": s2}
 
-# def kalman_filter_minimal(df_x, G, Q, a, Z, R, names, x0=None, P0=None, scaler=None):
-#     """
-#     Filtre de Kalman minimal (prévision et filtrage) pour données avec NaN.
-#     """
-#     y = df_x.reindex(columns=names).values.astype(float)
-#     idx = df_x.index
-#     T, k = y.shape
-#     p = G.shape[0]
-#     I = np.eye(p)
-
-#     if x0 is None:
-#         x0 = np.zeros(p, dtype=float)
-#     else:
-#         x0 = np.asarray(x0, dtype=float).reshape(p)
-
-#     if P0 is None:
-#         P0 = np.eye(p, dtype=float) * 1e2
-#     else:
-#         P0 = np.asarray(P0, dtype=float).reshape(p, p)
-
-#     a = np.asarray(a, dtype=float).reshape(p)
-
-#     a_pred = np.zeros((T, p))
-#     P_pred = np.zeros((T, p, p))
-#     a_filt = np.zeros((T, p))
-#     P_filt = np.zeros((T, p, p))
-
-#     a_t = x0.copy()
-#     P_t = P0.copy()
-
-#     if scaler is not None:
-#         mu = np.asarray(scaler.mean_, dtype=float)
-#         sd = np.asarray(scaler.scale_, dtype=float)
-#         if mu.shape[0] != k or sd.shape[0] != k:
-#             raise ValueError("Scaler incompatible: il doit être fit sur df[names] dans le même ordre.")
-#         sd = np.where(sd == 0.0, 1.0, sd)
-
-#     for t in range(T):
-#         # prediction
-#         a_t_pred = G @ a_t + a
-#         P_t_pred = G @ P_t @ G.T + Q
-
-#         yt = y[t, :]
-#         mask = ~np.isnan(yt)
-
-#         if mask.sum() == 0:
-#             a_t, P_t = a_t_pred, P_t_pred
-#         else:
-#             y_obs = yt[mask]
-#             if scaler is not None:
-#                 y_obs = (y_obs - mu[mask]) / sd[mask]
-
-#             Z_obs = Z[mask, :]
-#             R_obs = R[np.ix_(mask, mask)]
-
-#             v = y_obs - (Z_obs @ a_t_pred)              # innovation
-#             S = Z_obs @ P_t_pred @ Z_obs.T + R_obs      # cov innovation
-
-#             # gain K
-#             PZt = P_t_pred @ Z_obs.T                    # (p, m)
-#             try:
-#                 K = np.linalg.solve(S, PZt.T).T         # (p, m)
-#             except np.linalg.LinAlgError:
-#                 S = S + 1e-8 * np.eye(S.shape[0])
-#                 K = np.linalg.solve(S, PZt.T).T
-
-#             a_t = a_t_pred + K @ v
-
-#             KH = K @ Z_obs
-#             P_t = (I - KH) @ P_t_pred @ (I - KH).T + K @ R_obs @ K.T
-
-#         a_pred[t], P_pred[t] = a_t_pred, P_t_pred
-#         a_filt[t], P_filt[t] = a_t, P_t
-
-#     return {"a_pred": a_pred, "P_pred": P_pred,
-#             "a_filt": a_filt, "P_filt": P_filt,
-#             "index": idx}
-
 def build_ssm_two_series_ar1_ml(params, jitter_R=1e-8):
     """"
     Construit les matrices SSM à partir des paramètres ML estimés.
@@ -279,3 +201,82 @@ def kalman_filter_states(df_hf, params, names, jitter_R=1e-8):
         a_filt[t] = a
 
     return {"index": idx, "a_pred": a_pred, "a_filt": a_filt, "G": G, "Z": Z}
+
+
+# def kalman_filter_minimal(df_x, G, Q, a, Z, R, names, x0=None, P0=None, scaler=None):
+#     """
+#     Filtre de Kalman minimal (prévision et filtrage) pour données avec NaN.
+#     """
+#     y = df_x.reindex(columns=names).values.astype(float)
+#     idx = df_x.index
+#     T, k = y.shape
+#     p = G.shape[0]
+#     I = np.eye(p)
+
+#     if x0 is None:
+#         x0 = np.zeros(p, dtype=float)
+#     else:
+#         x0 = np.asarray(x0, dtype=float).reshape(p)
+
+#     if P0 is None:
+#         P0 = np.eye(p, dtype=float) * 1e2
+#     else:
+#         P0 = np.asarray(P0, dtype=float).reshape(p, p)
+
+#     a = np.asarray(a, dtype=float).reshape(p)
+
+#     a_pred = np.zeros((T, p))
+#     P_pred = np.zeros((T, p, p))
+#     a_filt = np.zeros((T, p))
+#     P_filt = np.zeros((T, p, p))
+
+#     a_t = x0.copy()
+#     P_t = P0.copy()
+
+#     if scaler is not None:
+#         mu = np.asarray(scaler.mean_, dtype=float)
+#         sd = np.asarray(scaler.scale_, dtype=float)
+#         if mu.shape[0] != k or sd.shape[0] != k:
+#             raise ValueError("Scaler incompatible: il doit être fit sur df[names] dans le même ordre.")
+#         sd = np.where(sd == 0.0, 1.0, sd)
+
+#     for t in range(T):
+#         # prediction
+#         a_t_pred = G @ a_t + a
+#         P_t_pred = G @ P_t @ G.T + Q
+
+#         yt = y[t, :]
+#         mask = ~np.isnan(yt)
+
+#         if mask.sum() == 0:
+#             a_t, P_t = a_t_pred, P_t_pred
+#         else:
+#             y_obs = yt[mask]
+#             if scaler is not None:
+#                 y_obs = (y_obs - mu[mask]) / sd[mask]
+
+#             Z_obs = Z[mask, :]
+#             R_obs = R[np.ix_(mask, mask)]
+
+#             v = y_obs - (Z_obs @ a_t_pred)              # innovation
+#             S = Z_obs @ P_t_pred @ Z_obs.T + R_obs      # cov innovation
+
+#             # gain K
+#             PZt = P_t_pred @ Z_obs.T                    # (p, m)
+#             try:
+#                 K = np.linalg.solve(S, PZt.T).T         # (p, m)
+#             except np.linalg.LinAlgError:
+#                 S = S + 1e-8 * np.eye(S.shape[0])
+#                 K = np.linalg.solve(S, PZt.T).T
+
+#             a_t = a_t_pred + K @ v
+
+#             KH = K @ Z_obs
+#             P_t = (I - KH) @ P_t_pred @ (I - KH).T + K @ R_obs @ K.T
+
+#         a_pred[t], P_pred[t] = a_t_pred, P_t_pred
+#         a_filt[t], P_filt[t] = a_t, P_t
+
+#     return {"a_pred": a_pred, "P_pred": P_pred,
+#             "a_filt": a_filt, "P_filt": P_filt,
+#             "index": idx}

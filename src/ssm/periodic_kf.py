@@ -1,7 +1,7 @@
 import numpy as np
 from dataclasses import dataclass
 from typing import List, Tuple
-from src.ssm.params import OneFactorParams
+from src.ssm.params import OneFactorParams, TwoFactorParams
 from src.ssm.measurement import build_measurement_mats
 
 
@@ -78,6 +78,73 @@ def periodic_steady_state_kf(p: OneFactorParams) -> PeriodicKF:
 
     return PeriodicKF(params=p, P_pred=P_pred, K_gain=K_gain, Z_list=Z_list, H_list=H_list)
 
+def periodic_steady_state_kf_2f(p: TwoFactorParams):
+    """
+    Calcule les gains de Kalman périodiques (steady-state)
+    pour le modèle à deux facteurs
+    """
+    m = p.m
+    dim = p.dim_state
+
+    # Matrice de transition
+    G = np.diag([p.rho1, p.rho2, p.d, p.d])
+
+    # Variance des innovations
+    Q = np.diag([p.sig2_f1, p.sig2_f2, p.sig2_uy, p.sig2_ux])
+
+    # Matrices de mesure selon la sous-période
+    Z_list = []
+    H_list = []
+
+    for j in range(1, m + 1):
+        if j < m:
+            # x = f1 + u_x
+            Z = np.array([[1, 0, 0, 1]])
+            H = np.zeros((1, 1))
+        else:
+            # y = f1 + f2 + u_y
+            # x = f1 + u_x
+            Z = np.array([
+                [1, 1, 1, 0],
+                [1, 0, 0, 1]
+            ])
+            H = np.zeros((2, 2))
+
+        Z_list.append(Z)
+        H_list.append(H)
+
+    # Initialisation Riccati
+    P = np.eye(dim) * 10.0
+
+    for _ in range(RICCATI_MAX_ITERS):
+        P_old = P.copy()
+        for j in range(m):
+            Z = Z_list[j]
+            H = H_list[j]
+
+            S = Z @ P @ Z.T + H
+            K = P @ Z.T @ np.linalg.inv(S)
+            P = P - K @ Z @ P
+            P = G @ P @ G.T + Q
+
+        if np.max(np.abs(P - P_old)) < RICCATI_TOL:
+            break
+
+    # Gains de Kalman steady-state
+    K_list = []
+    for j in range(m):
+        Z = Z_list[j]
+        H = H_list[j]
+        S = Z @ P @ Z.T + H
+        K = P @ Z.T @ np.linalg.inv(S)
+        K_list.append(K)
+
+    return {
+        "G": G,
+        "Z_list": Z_list,
+        "K_list": K_list,
+    }
+
 
 def run_periodic_kf_filter(
     kf: PeriodicKF,
@@ -134,3 +201,50 @@ def run_periodic_kf_filter(
         state_filt_high[t_high, :] = a
 
     return state_filt_high, state_filt_low
+
+def run_periodic_kf_filter_2f(kf, y, x):
+    """
+    Applique le filtre de Kalman périodique à deux facteurs
+    et retourne les états filtrés aux dates basse fréquence
+    """
+    G = kf["G"]
+    Z_list = kf["Z_list"]
+    K_list = kf["K_list"]
+
+    m = len(Z_list)
+    T_low = len(y)
+    T_high = T_low * m
+
+    a = np.zeros(G.shape[0])
+    states_low = []
+
+    low_idx = 0
+
+    for t in range(T_high):
+        j = t % m
+
+        # Prediction
+        a = G @ a
+
+        # Observation
+        if j < m - 1:
+            y_obs = np.array([x[t, 0]])
+        else:
+            y_obs = np.array([y[low_idx], x[t, 0]])
+            low_idx += 1
+
+        Z = Z_list[j]
+        K = K_list[j]
+
+        # Innovation
+        v = y_obs - Z @ a
+
+        # Mise à jour
+        a = a + K @ v
+
+        # Sauvegarde à la fin de chaque période LF
+        if j == m - 1:
+            states_low.append(a.copy())
+
+    return np.array(states_low)
+

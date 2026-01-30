@@ -1,6 +1,6 @@
 import numpy as np
-from src.ssm.likelihood import kalman_loglike_full, kalman_loglike_2f, fit_kalman_mle
-from src.ssm.params import TwoFactorParams
+from src.ssm.likelihood import kalman_loglike_full, kalman_loglike_2f, fit_kalman_mle, fit_kalman_mle_2f
+from src.ssm.params import OneFactorParams, TwoFactorParams
 
 # ----------------------------------------------------
 # GRID as in the paper
@@ -30,25 +30,23 @@ def aic(loglike: float, k: int) -> float:
     """AIC critère"""
     return -2 * loglike + 2 * k
 
-def bic(loglike: float, k: int, T: int) -> float:
-    return -2 * loglike + k * np.log(T)
+def bic(loglike: float, k: int, T_low: int, m: int, n_x: int = 1) -> float:
+    n_obs = T_low + (T_low * m) * n_x
+    return -2 * loglike + k * np.log(n_obs)
 
 def rmspe(forecast, actual):
     """Retourne l erreur de prevision quadratique moyenne"""
     return np.sqrt(np.mean(((forecast - actual)) ** 2))
 
-
-def kalman_ic_1f(y, x, m=3):
+def kalman_ic_1f(y, x, m=3) -> tuple[float, int, OneFactorParams]:
     # Critères pour aic ou bic 1 facteur
     p = fit_kalman_mle(y, x, m=m)
     ll = kalman_loglike_full(p, y, x)
     k = 5   # rho, d, sig2_f, sig2_uy, sig2_ux
     return ll, k, p
 
-def kalman_ic_2f(y, x, m=3):
-    # critères pour aic ou bic 2 facteurs
-    p = TwoFactorParams(m=m)
+def kalman_ic_2f(y, x, m=3)-> tuple[float, int, TwoFactorParams]:
+    p = fit_kalman_mle_2f(y, x, m=m)
     ll = kalman_loglike_2f(p, y, x)
-    k = 6   # rho1, rho2, sig2_f1, sig2_f2, sig2_uy, sig2_ux
+    k = 7  # rho1,rho2,d + 4 variances
     return ll, k, p
-

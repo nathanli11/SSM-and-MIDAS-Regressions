@@ -7,8 +7,8 @@ from src.ssm.kalman_two_series import (
 from src.evaluation.recursive_table7 import recursive_forecast_exercise
 
 # Data importation
-stat_xl = pd.read_excel(r'ORGA_TEST/data/stationnary_data.xlsx', index_col=0, parse_dates=True)
-y_parse = pd.read_excel(r'ORGA_TEST/data/y_sparse.xlsx', index_col=0, parse_dates=True)
+stat_xl = pd.read_excel(r'data/stationnary_data.xlsx', index_col=0, parse_dates=True)
+y_parse = pd.read_excel(r'data/y_sparse.xlsx', index_col=0, parse_dates=True)
 
 series_names = stat_xl.columns.tolist()
 gdp_name = y_parse.columns[0]

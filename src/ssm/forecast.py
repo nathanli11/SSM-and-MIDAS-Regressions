@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from src.ssm.params import OneFactorParams
+from src.ssm.params import OneFactorParams, TwoFactorParams
 from src.ssm.likelihood import fit_kalman_mle
 from src.ssm.periodic_kf import (periodic_steady_state_kf, run_periodic_kf_filter)
 from src.evaluation.data_management import quarter_end_months
@@ -41,7 +41,6 @@ def kalman_filter_forecast(y, x, h=1, m=3):
 
     return np.array(forecasts), np.array(actuals)
 
-
 def forecast_gdp_quarter_ssm(kf_out, params, origin_month, target_q):
     """
     Prévision du GDP trimestriel target_q à partir du filtre Kalman
@@ -73,3 +72,8 @@ def forecast_gdp_quarter_ssm(kf_out, params, origin_month, target_q):
     f_m3, u1_m3 = a[0], a[1]
     gdp_hat = g1 * f_m3 + u1_m3
     return float(gdp_hat)
+
+def forecast_y_from_state_2f(p: TwoFactorParams, state, h):
+    f1, f2, uy, _ = state
+    return (p.rho1**(p.m*h))*f1 + (p.rho2**(p.m*h))*f2 + (p.d**(p.m*h))*uy
+
